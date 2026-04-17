@@ -184,10 +184,33 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 
 ---
 
+## Telegram integration
+
+Connect your coworker to a Telegram bot so you can message it from anywhere.
+
+**Setup:**
+1. Create a bot with [@BotFather](https://t.me/BotFather) on Telegram — copy the token
+2. Set `TELEGRAM_BOT_TOKEN` in your `.env`
+3. Restart the worker
+4. In your workspace Settings → Telegram, click **Connect Telegram** to get a code
+5. Send `/connect <code>` to your bot — done
+
+Messages you send to the bot go through the same agent loop as the web app. Responses come back to Telegram automatically.
+
+---
+
+## File uploads
+
+Upload PDFs, images, and text files to your workspace from **Settings → Files**. Attached files show up in the agent's context when you include them in a message using the paperclip icon in the chat input. The agent can also list your uploaded files with the `list_files` tool.
+
+---
+
 ## Roadmap
 
-- [ ] Telegram / WhatsApp integration
-- [ ] File uploads with vision support
+- [x] Telegram integration
+- [x] File uploads
+- [ ] WhatsApp integration
+- [ ] PDF text extraction + image vision
 - [ ] More founder templates (Creator, Real estate)
 - [ ] Webhook triggers for autopilot
 - [ ] Public skills marketplace

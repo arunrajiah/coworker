@@ -74,17 +74,6 @@ export const api = {
       apiRequest(`/api/workspaces/${slug}/tasks/${id}`, { method: 'DELETE' }),
   },
 
-  chat: {
-    threads: (slug: string) => apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads`),
-    messages: (slug: string, threadId: string) =>
-      apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads/${threadId}/messages`),
-    sendMessage: (slug: string, threadId: string, content: string) =>
-      apiRequest<{ message: Message; agentRunId: string; threadId: string }>(
-        `/api/workspaces/${slug}/chat/threads/${threadId}/messages`,
-        { method: 'POST', body: JSON.stringify({ content }) }
-      ),
-  },
-
   skills: {
     list: (slug: string) => apiRequest<Skill[]>(`/api/workspaces/${slug}/skills`),
     create: (slug: string, data: Partial<Skill>) =>
@@ -99,6 +88,62 @@ export const api = {
       }),
     delete: (slug: string, id: string) =>
       apiRequest(`/api/workspaces/${slug}/skills/${id}`, { method: 'DELETE' }),
+  },
+
+  integrations: {
+    telegramStatus: (slug: string) =>
+      apiRequest<{ connections: TelegramConnection[] }>(
+        `/api/workspaces/${slug}/integrations/telegram`,
+        { workspaceSlug: slug }
+      ),
+    telegramConnectCode: (slug: string) =>
+      apiRequest<{ code: string; botUsername: string; expiresInSeconds: number }>(
+        `/api/workspaces/${slug}/integrations/telegram/connect-code`,
+        { method: 'POST', workspaceSlug: slug }
+      ),
+    telegramDisconnect: (slug: string, connectionId: string) =>
+      apiRequest(`/api/workspaces/${slug}/integrations/telegram/${connectionId}`, {
+        method: 'DELETE',
+        workspaceSlug: slug,
+      }),
+    listFiles: (slug: string) =>
+      apiRequest<WorkspaceFile[]>(`/api/workspaces/${slug}/integrations/files`, {
+        workspaceSlug: slug,
+      }),
+    uploadFile: async (slug: string, file: File): Promise<WorkspaceFile> => {
+      const token = getToken()
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${API_URL}/api/workspaces/${slug}/integrations/files`, {
+        method: 'POST',
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'X-Workspace-Slug': slug,
+        },
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+        throw new Error((err as any).error ?? `HTTP ${res.status}`)
+      }
+      return res.json() as Promise<WorkspaceFile>
+    },
+    deleteFile: (slug: string, fileId: string) =>
+      apiRequest(`/api/workspaces/${slug}/integrations/files/${fileId}`, {
+        method: 'DELETE',
+        workspaceSlug: slug,
+      }),
+  },
+
+  chat: {
+    threads: (slug: string) => apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads`),
+    messages: (slug: string, threadId: string) =>
+      apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads/${threadId}/messages`),
+    sendMessage: (slug: string, threadId: string, content: string, fileIds?: string[]) =>
+      apiRequest<{ message: Message; agentRunId: string; threadId: string }>(
+        `/api/workspaces/${slug}/chat/threads/${threadId}/messages`,
+        { method: 'POST', body: JSON.stringify({ content, fileIds }) }
+      ),
   },
 }
 
@@ -145,4 +190,20 @@ export interface Skill {
   triggerPhrase: string | null
   tools: string[]
   isActive: boolean
+}
+
+export interface TelegramConnection {
+  id: string
+  telegramUsername: string | null
+  connectedAt: string
+}
+
+export interface WorkspaceFile {
+  id: string
+  name: string
+  mimeType: string | null
+  sizeBytes: number | null
+  storageKey: string
+  url: string
+  createdAt: string
 }

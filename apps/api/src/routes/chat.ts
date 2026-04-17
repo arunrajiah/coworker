@@ -69,13 +69,13 @@ chatRoutes.post(
     'json',
     z.object({
       content: z.string().min(1).max(32000),
-      threadId: z.string().optional(),
+      fileIds: z.array(z.string().uuid()).max(10).optional(),
     })
   ),
   async (c) => {
     const workspaceId = c.get('workspaceId')
     const user = c.get('user')
-    const { content } = c.req.valid('json')
+    const { content, fileIds } = c.req.valid('json')
     const threadId = c.req.param('threadId') === 'new' ? nanoid() : c.req.param('threadId')
     const { db } = getContainer()
 
@@ -90,6 +90,7 @@ chatRoutes.post(
           threadId,
           channel: 'web',
           userId: user.sub,
+          metadata: fileIds && fileIds.length > 0 ? { fileIds } : undefined,
         })
         .returning()
     )

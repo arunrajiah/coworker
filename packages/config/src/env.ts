@@ -25,6 +25,9 @@ const envSchema = z.object({
   // File storage
   UPLOAD_DIR: z.string().default('./uploads'),
 
+  // Telegram bot (optional — enables Telegram integration)
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+
   // App
   APP_URL: z.string().url().default('http://localhost:3000'),
   API_URL: z.string().url().default('http://localhost:3001'),

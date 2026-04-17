@@ -17,6 +17,7 @@ export const messages = tenantSchema.table(
     channel: messageChannelEnum('channel').notNull().default('web'),
     externalMsgId: text('external_msg_id'),
     userId: uuid('user_id'),
+    metadata: jsonb('metadata').$type<{ fileIds?: string[]; [key: string]: unknown }>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

@@ -4,6 +4,7 @@ import { getEnv } from '@coworker/config'
 import { createClient } from '@coworker/db'
 import { executeAgentRun, type AgentJobData } from './agent/executor.js'
 import { syncScheduledRules, executeAutopilotRule, type AutopilotJobData } from './autopilot/scheduler.js'
+import { startTelegramBot } from './integrations/telegram.js'
 
 const env = getEnv()
 
@@ -57,10 +58,21 @@ await syncScheduledRules(db, autopilotQueue)
 console.log('[autopilot] Scheduled rules synced')
 console.log('[worker] Agent worker ready')
 
+// ── Telegram bot (optional) ───────────────────────────────────────────────────
+
+let telegramBot: ReturnType<typeof startTelegramBot> | undefined
+
+if (env.TELEGRAM_BOT_TOKEN) {
+  telegramBot = startTelegramBot(env.TELEGRAM_BOT_TOKEN, db, redis, agentQueue)
+} else {
+  console.log('[telegram] No TELEGRAM_BOT_TOKEN set — Telegram integration disabled')
+}
+
 // ── Graceful shutdown ────────────────────────────────────────────────────────
 
 process.on('SIGTERM', async () => {
   console.log('[worker] Shutting down...')
+  telegramBot?.stop()
   await agentWorker.close()
   await autopilotWorker.close()
   await syncSubscriber.unsubscribe()

@@ -1,6 +1,6 @@
 import { generateText, type CoreMessage } from 'ai'
-import { eq, and, asc, desc } from 'drizzle-orm'
-import { messages, agentRuns, skills, tasks, workspaces } from '@coworker/db'
+import { eq, and, asc, desc, inArray } from 'drizzle-orm'
+import { messages, agentRuns, skills, tasks, workspaces, files } from '@coworker/db'
 import type { DbClient } from '@coworker/db'
 import { withWorkspace } from '@coworker/db'
 import type { Redis } from 'ioredis'
@@ -10,6 +10,7 @@ import { retrieveRelevantMemories, saveMemory } from './memory.js'
 import { createTaskTool } from './tools/create-task.js'
 import { searchTasksTool } from './tools/search-tasks.js'
 import { updateTaskTool } from './tools/update-task.js'
+import { listFilesTool } from './tools/list-files.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -66,7 +67,24 @@ export async function executeAgentRun(
       })
     )
 
-    const userInput = history.at(-1)?.content ?? ''
+    const lastMessage = history.at(-1)
+    const userInput = lastMessage?.content ?? ''
+
+    // Build file context if files were attached to the message
+    let fileContext = ''
+    const attachedFileIds = (lastMessage?.metadata as { fileIds?: string[] } | null)?.fileIds ?? []
+    if (attachedFileIds.length > 0) {
+      const attachedFiles = await withWorkspace(db, workspaceId, async (tx) =>
+        tx.query.files.findMany({ where: inArray(files.id, attachedFileIds) })
+      )
+      if (attachedFiles.length > 0) {
+        fileContext =
+          '\n\n---\nThe user has attached the following files to this message:\n' +
+          attachedFiles
+            .map((f) => `- **${f.name}** (${f.mimeType ?? 'unknown type'}, ${f.sizeBytes ? Math.round(f.sizeBytes / 1024) + ' KB' : 'unknown size'}) — file ID: ${f.id}`)
+            .join('\n')
+      }
+    }
 
     // Retrieve relevant memories
     const recentMemories = await retrieveRelevantMemories(db, workspaceId, userInput)
@@ -98,7 +116,7 @@ export async function executeAgentRun(
       role: m.role === 'assistant' ? 'assistant' : 'user',
       content: m.content,
     }))
-    llmMessages.push({ role: 'user', content: userInput })
+    llmMessages.push({ role: 'user', content: userInput + fileContext })
 
     const { chatModel } = getLLMProvider()
 
@@ -106,6 +124,7 @@ export async function executeAgentRun(
       create_task: createTaskTool(db, redis, workspaceId, userId),
       search_tasks: searchTasksTool(db, workspaceId),
       update_task: updateTaskTool(db, redis, workspaceId),
+      list_files: listFilesTool(db, workspaceId),
     }
 
     const result = await generateText({
