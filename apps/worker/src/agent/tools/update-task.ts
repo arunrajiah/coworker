@@ -11,7 +11,8 @@ export function updateTaskTool(db: DbClient, redis: Redis, workspaceId: string) 
     description: 'Update an existing task status, priority, or details.',
     parameters: z.object({
       taskId: z.string().uuid().describe('The task ID to update'),
-      status: z.enum(['open', 'in_progress', 'done', 'cancelled']).optional(),
+      status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled']).optional(),
+      agentNotes: z.string().optional().describe('Notes the agent can leave on the task about its work'),
       priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
       title: z.string().optional(),
       description: z.string().optional(),

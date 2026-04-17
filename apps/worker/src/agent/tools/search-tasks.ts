@@ -11,14 +11,16 @@ export function searchTasksTool(db: DbClient, workspaceId: string) {
       'Search and list tasks in the workspace. Use this to find existing tasks, check what is open, or look for specific work items.',
     parameters: z.object({
       query: z.string().optional().describe('Search term to filter tasks by title'),
-      status: z.enum(['open', 'in_progress', 'done', 'cancelled']).optional(),
+      status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled']).optional(),
+      domain: z.enum(['general', 'development', 'qa', 'marketing', 'finance', 'design', 'operations', 'hr', 'legal', 'sales']).optional(),
       priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
       limit: z.number().min(1).max(50).default(20),
     }),
-    execute: async ({ query, status, priority, limit }) => {
+    execute: async ({ query, status, domain, priority, limit }) => {
       const result = await withWorkspace(db, workspaceId, async (tx) => {
         const conditions = [eq(tasks.workspaceId, workspaceId)]
         if (status) conditions.push(eq(tasks.status, status))
+        if (domain) conditions.push(eq(tasks.domain, domain))
         if (priority) conditions.push(eq(tasks.priority, priority))
         if (query) {
           // Escape special LIKE chars
@@ -29,7 +31,7 @@ export function searchTasksTool(db: DbClient, workspaceId: string) {
         return tx.query.tasks.findMany({
           where: and(...conditions),
           limit,
-          columns: { id: true, title: true, status: true, priority: true, dueDate: true, labels: true },
+          columns: { id: true, title: true, status: true, domain: true, priority: true, dueDate: true, labels: true },
         })
       })
 

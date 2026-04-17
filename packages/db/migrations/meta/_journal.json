@@ -22,6 +22,13 @@
       "when": 1745136001000,
       "tag": "0002_message_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1745222400000,
+      "tag": "0003_tasks_domains",
+      "breakpoints": true
     }
   ]
 }

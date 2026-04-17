@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useParams, useRouter } from 'next/navigation'
-import { MessageSquare, CheckSquare, Moon, Settings, LogOut, ChevronDown } from 'lucide-react'
+import { MessageSquare, CheckSquare, Moon, Settings, LogOut, ChevronDown, Kanban, LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
 import { api } from '@/lib/api'
@@ -21,6 +21,8 @@ const TEMPLATE_ICONS: Record<string, string> = {
 }
 
 const navItems = [
+  { href: '', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: 'board', label: 'Board', icon: Kanban },
   { href: 'chat', label: 'Chat', icon: MessageSquare },
   { href: 'tasks', label: 'Tasks', icon: CheckSquare },
   { href: 'autopilot', label: 'Autopilot', icon: Moon },
@@ -70,9 +72,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
         {/* Nav */}
         <nav className="flex-1 p-2 space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const fullHref = `/w/${slug}/${href}`
-            const active = pathname.startsWith(fullHref)
+          {navItems.map(({ href, label, icon: Icon, exact }) => {
+            const fullHref = href ? `/w/${slug}/${href}` : `/w/${slug}`
+            const active = exact ? pathname === fullHref : pathname.startsWith(`/w/${slug}/${href}`)
             return (
               <Link
                 key={href}

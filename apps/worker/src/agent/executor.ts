@@ -11,6 +11,7 @@ import { createTaskTool } from './tools/create-task.js'
 import { searchTasksTool } from './tools/search-tasks.js'
 import { updateTaskTool } from './tools/update-task.js'
 import { listFilesTool } from './tools/list-files.js'
+import { planWorkTool } from './tools/plan-work.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -92,7 +93,7 @@ export async function executeAgentRun(
     // Summarize open tasks for context
     const openTasks = await withWorkspace(db, workspaceId, async (tx) =>
       tx.query.tasks.findMany({
-        where: and(eq(tasks.workspaceId, workspaceId), eq(tasks.status, 'open')),
+        where: and(eq(tasks.workspaceId, workspaceId), eq(tasks.status, 'todo')),
         orderBy: [desc(tasks.createdAt)],
         limit: 10,
         columns: { id: true, title: true, priority: true, dueDate: true },
@@ -125,6 +126,7 @@ export async function executeAgentRun(
       search_tasks: searchTasksTool(db, workspaceId),
       update_task: updateTaskTool(db, redis, workspaceId),
       list_files: listFilesTool(db, workspaceId),
+      plan_work: planWorkTool(db, redis, workspaceId, userId),
     }
 
     const result = await generateText({

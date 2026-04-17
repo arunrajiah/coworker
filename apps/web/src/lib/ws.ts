@@ -9,6 +9,7 @@ type WSEvent =
   | { type: 'agent:error'; agentRunId: string; error: string }
   | { type: 'task:created'; task: import('./api').Task }
   | { type: 'task:updated'; task: import('./api').Task }
+  | { type: 'task:deleted'; taskId: string }
 
 type EventHandler = (event: WSEvent) => void
 

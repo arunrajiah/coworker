@@ -56,9 +56,13 @@ export const api = {
   },
 
   tasks: {
-    list: (slug: string, params?: { status?: string }) => {
+    list: (slug: string, params?: { status?: string; domain?: string }) => {
       const qs = params ? `?${new URLSearchParams(params as any)}` : ''
       return apiRequest<Task[]>(`/api/workspaces/${slug}/tasks${qs}`)
+    },
+    board: (slug: string, domain?: string) => {
+      const qs = domain && domain !== 'all' ? `?domain=${domain}` : ''
+      return apiRequest<BoardColumns>(`/api/workspaces/${slug}/tasks/board${qs}`)
     },
     create: (slug: string, data: Partial<Task>) =>
       apiRequest<Task>(`/api/workspaces/${slug}/tasks`, {
@@ -157,19 +161,30 @@ export interface Workspace {
   createdAt: string
 }
 
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type TaskDomain =
+  | 'general' | 'development' | 'qa' | 'marketing' | 'finance'
+  | 'design' | 'operations' | 'hr' | 'legal' | 'sales'
+
 export interface Task {
   id: string
   workspaceId: string
   title: string
   description: string | null
-  status: 'open' | 'in_progress' | 'done' | 'cancelled'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
+  status: TaskStatus
+  priority: TaskPriority
+  domain: TaskDomain
   labels: string[]
   dueDate: string | null
   agentOwned: boolean
+  queuedForAgent: boolean
+  agentNotes: string | null
   createdAt: string
   updatedAt: string
 }
+
+export type BoardColumns = Record<'backlog' | 'todo' | 'in_progress' | 'review' | 'done', Task[]>
 
 export interface Message {
   id: string
