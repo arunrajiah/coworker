@@ -3,6 +3,7 @@ export * from './platform/users'
 export * from './platform/workspaces'
 export * from './platform/sessions'
 export * from './platform/telegram'
+export * from './platform/git'
 
 // Tenant schema
 export * from './tenant/tasks'

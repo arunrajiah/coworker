@@ -170,6 +170,27 @@ export const api = {
     list: (slug: string) => apiRequest<AgentRun[]>(`/api/workspaces/${slug}/activity`),
   },
 
+  git: {
+    list: (slug: string) =>
+      apiRequest<GitConnection[]>(`/api/workspaces/${slug}/git`, { workspaceSlug: slug }),
+    connect: (slug: string, data: { provider: 'github' | 'gitlab' | 'bitbucket'; repoOwner: string; repoName: string; accessToken: string }) =>
+      apiRequest<GitConnection & { webhookSecret: string }>(`/api/workspaces/${slug}/git`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        workspaceSlug: slug,
+      }),
+    disconnect: (slug: string, connectionId: string) =>
+      apiRequest(`/api/workspaces/${slug}/git/${connectionId}`, {
+        method: 'DELETE',
+        workspaceSlug: slug,
+      }),
+    test: (slug: string, connectionId: string) =>
+      apiRequest<{ ok: boolean; repo?: { fullName: string; defaultBranch: string }; error?: string }>(
+        `/api/workspaces/${slug}/git/${connectionId}/test`,
+        { workspaceSlug: slug }
+      ),
+  },
+
   chat: {
     threads: (slug: string) => apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads`),
     messages: (slug: string, threadId: string) =>
@@ -283,6 +304,19 @@ export interface AutopilotRule {
   lastRunAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
+
+export interface GitConnection {
+  id: string
+  workspaceId: string
+  provider: GitProvider
+  repoOwner: string
+  repoName: string
+  webhookSecret?: string
+  connectedBy: string
+  connectedAt: string
 }
 
 export interface AgentRun {

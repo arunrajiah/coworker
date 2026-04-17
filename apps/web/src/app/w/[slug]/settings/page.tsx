@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace } from '@/lib/api'
+import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu, GitBranch, Copy, RefreshCw, Unplug } from 'lucide-react'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 
@@ -20,6 +20,7 @@ export default function SettingsPage() {
         </div>
 
         <ModelSection slug={slug} />
+        <GitSection slug={slug} />
         <TelegramSection slug={slug} />
         <FilesSection slug={slug} />
         <SkillsSection slug={slug} />
@@ -198,6 +199,210 @@ function ModelSection({ slug }: { slug: string }) {
           )}
         </div>
       </form>
+    </section>
+  )
+}
+
+// ── Git Section ───────────────────────────────────────────────────────────────
+
+const GIT_PROVIDER_LABELS: Record<GitProvider, string> = {
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  bitbucket: 'Bitbucket',
+}
+
+const WEBHOOK_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+
+function GitSection({ slug }: { slug: string }) {
+  const [connections, setConnections] = useState<GitConnection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [connecting, setConnecting] = useState(false)
+  const [form, setForm] = useState({ provider: 'github' as GitProvider, repoOwner: '', repoName: '', accessToken: '' })
+  const [newConn, setNewConn] = useState<(GitConnection & { webhookSecret: string }) | null>(null)
+  const [testingId, setTestingId] = useState<string | null>(null)
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; label: string }>>({})
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.git.list(slug).then((c) => { setConnections(c); setLoading(false) }).catch(() => setLoading(false))
+  }, [slug])
+
+  async function handleConnect(e: React.FormEvent) {
+    e.preventDefault()
+    setConnecting(true)
+    try {
+      const conn = await api.git.connect(slug, form)
+      setConnections((prev) => [conn, ...prev])
+      setNewConn(conn)
+      setForm({ provider: 'github', repoOwner: '', repoName: '', accessToken: '' })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Connection failed')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  async function handleDisconnect(id: string) {
+    await api.git.disconnect(slug, id)
+    setConnections((prev) => prev.filter((c) => c.id !== id))
+    if (newConn?.id === id) setNewConn(null)
+  }
+
+  async function handleTest(id: string) {
+    setTestingId(id)
+    try {
+      const result = await api.git.test(slug, id)
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: { ok: result.ok, label: result.ok ? `OK · ${result.repo?.fullName ?? ''}` : result.error ?? 'Failed' },
+      }))
+    } finally {
+      setTestingId(null)
+    }
+  }
+
+  async function copyWebhookUrl(conn: GitConnection) {
+    const url = `${WEBHOOK_BASE}/webhooks/git/${conn.id}`
+    await navigator.clipboard.writeText(url)
+    setCopiedId(conn.id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="font-medium flex items-center gap-2">
+          <GitBranch className="h-4 w-4 text-muted-foreground" />
+          Git Repositories
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Connect GitHub, GitLab, or Bitbucket repos. The agent can read issues, create tasks, and receive webhook events.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+        </div>
+      ) : (
+        <>
+          {connections.length > 0 && (
+            <div className="space-y-2">
+              {connections.map((conn) => (
+                <div key={conn.id} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                        {GIT_PROVIDER_LABELS[conn.provider]}
+                      </span>
+                      <span className="text-sm font-medium">{conn.repoOwner}/{conn.repoName}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleTest(conn.id)}
+                        disabled={testingId === conn.id}
+                        title="Test connection"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {testingId === conn.id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <RefreshCw className="h-4 w-4" />}
+                      </button>
+                      <button
+                        onClick={() => handleDisconnect(conn.id)}
+                        title="Disconnect"
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Unplug className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {testResults[conn.id] && (
+                    <p className={`text-xs ${testResults[conn.id].ok ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                      {testResults[conn.id].ok ? '✓' : '✗'} {testResults[conn.id].label}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">Webhook URL:</p>
+                    <code className="flex-1 text-xs font-mono text-muted-foreground truncate">
+                      {WEBHOOK_BASE}/webhooks/git/{conn.id}
+                    </code>
+                    <button
+                      onClick={() => copyWebhookUrl(conn)}
+                      title="Copy webhook URL"
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      {copiedId === conn.id
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {newConn && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 space-y-2">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Save your webhook secret</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                This will only be shown once. Add this as the webhook secret when registering the webhook in your git provider.
+              </p>
+              <code className="block text-xs font-mono bg-background border border-border rounded px-3 py-2 break-all">
+                {newConn.webhookSecret}
+              </code>
+              <button onClick={() => setNewConn(null)} className="text-xs text-amber-700 dark:text-amber-400 underline">
+                I&apos;ve saved it
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleConnect} className="rounded-lg border border-dashed border-border p-4 space-y-3">
+            <p className="text-sm font-medium">Connect a repository</p>
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                value={form.provider}
+                onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value as GitProvider }))}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="github">GitHub</option>
+                <option value="gitlab">GitLab</option>
+                <option value="bitbucket">Bitbucket</option>
+              </select>
+              <input
+                required
+                placeholder="owner / org"
+                value={form.repoOwner}
+                onChange={(e) => setForm((f) => ({ ...f, repoOwner: e.target.value }))}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                required
+                placeholder="repo name"
+                value={form.repoName}
+                onChange={(e) => setForm((f) => ({ ...f, repoName: e.target.value }))}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <input
+              required
+              type="password"
+              placeholder="Personal access token (PAT)"
+              value={form.accessToken}
+              onChange={(e) => setForm((f) => ({ ...f, accessToken: e.target.value }))}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <button
+              type="submit"
+              disabled={connecting}
+              className="inline-flex items-center gap-2 rounded-md bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+            >
+              {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Connect
+            </button>
+          </form>
+        </>
+      )}
     </section>
   )
 }

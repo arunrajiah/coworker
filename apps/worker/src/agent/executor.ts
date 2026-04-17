@@ -13,6 +13,7 @@ import { updateTaskTool } from './tools/update-task.js'
 import { listFilesTool } from './tools/list-files.js'
 import { readFileTool } from './tools/read-file.js'
 import { planWorkTool } from './tools/plan-work.js'
+import { listIssuesTool, createIssueTool, updateIssueTool, listPRsTool, listGitConnectionsTool } from './tools/git-issues.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -133,6 +134,11 @@ export async function executeAgentRun(
       list_files: listFilesTool(db, workspaceId),
       read_file: readFileTool(db, workspaceId),
       plan_work: planWorkTool(db, redis, workspaceId, userId),
+      list_git_connections: listGitConnectionsTool(db, workspaceId),
+      list_issues: listIssuesTool(db, workspaceId),
+      create_issue: createIssueTool(db, workspaceId),
+      update_issue: updateIssueTool(db, workspaceId),
+      list_pull_requests: listPRsTool(db, workspaceId),
     }
 
     const result = await generateText({

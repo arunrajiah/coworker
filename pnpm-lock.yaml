@@ -29,6 +29,9 @@ importers:
       '@coworker/adapter-email-nodemailer':
         specifier: workspace:*
         version: link:../../packages/adapters/email-nodemailer
+      '@coworker/adapter-git':
+        specifier: workspace:^
+        version: link:../../packages/adapters/git
       '@coworker/adapter-storage-local':
         specifier: workspace:*
         version: link:../../packages/adapters/storage-local
@@ -187,6 +190,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^1.0.0
         version: 1.3.24(zod@3.25.76)
+      '@coworker/adapter-git':
+        specifier: workspace:^
+        version: link:../../packages/adapters/git
       '@coworker/adapter-storage-local':
         specifier: workspace:*
         version: link:../../packages/adapters/storage-local
@@ -252,6 +258,8 @@ importers:
       '@types/nodemailer':
         specifier: ^6.4.17
         version: 6.4.23
+
+  packages/adapters/git: {}
 
   packages/adapters/storage-local:
     dependencies:
