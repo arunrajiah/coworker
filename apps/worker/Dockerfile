@@ -8,7 +8,11 @@ COPY packages/db/package.json packages/db/
 COPY packages/core/package.json packages/core/
 COPY packages/config/package.json packages/config/
 COPY packages/adapters/storage-local/package.json packages/adapters/storage-local/
+COPY packages/adapters/email-nodemailer/package.json packages/adapters/email-nodemailer/
+COPY packages/adapters/billing-noop/package.json packages/adapters/billing-noop/
+COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
+COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build
