@@ -57,6 +57,8 @@ export const api = {
     create: (data: { name: string; templateType?: string }) =>
       apiRequest<Workspace>('/api/workspaces', { method: 'POST', body: JSON.stringify(data) }),
     get: (slug: string) => apiRequest<Workspace>(`/api/workspaces/${slug}`),
+    update: (slug: string, data: { name?: string; llmProvider?: LLMProvider | null; llmModel?: string | null }) =>
+      apiRequest<Workspace>(`/api/workspaces/${slug}`, { method: 'PATCH', body: JSON.stringify(data) }),
   },
 
   tasks: {
@@ -181,6 +183,8 @@ export const api = {
 }
 
 // Shared types
+export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'groq' | 'mistral' | 'ollama'
+
 export interface Workspace {
   id: string
   name: string
@@ -188,6 +192,8 @@ export interface Workspace {
   templateType: string
   role: string
   createdAt: string
+  llmProvider: LLMProvider | null
+  llmModel: string | null
 }
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'

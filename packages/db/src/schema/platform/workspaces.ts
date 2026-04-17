@@ -14,6 +14,15 @@ export const templateTypeEnum = pgEnum('template_type', [
 
 export const workspaceMemberRoleEnum = pgEnum('workspace_member_role', ['owner', 'admin', 'member'])
 
+export const llmProviderEnum = pgEnum('llm_provider', [
+  'anthropic',
+  'openai',
+  'google',
+  'groq',
+  'mistral',
+  'ollama',
+])
+
 export const workspaces = platformSchema.table('workspaces', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
@@ -22,6 +31,8 @@ export const workspaces = platformSchema.table('workspaces', {
     .notNull()
     .references(() => users.id, { onDelete: 'restrict' }),
   templateType: templateTypeEnum('template_type').notNull().default('general'),
+  llmProvider: llmProviderEnum('llm_provider'),
+  llmModel: text('llm_model'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

@@ -13,6 +13,7 @@ export async function retrieveRelevantMemories(
 ): Promise<string[]> {
   try {
     const { embeddingModel } = getLLMProvider()
+    if (!embeddingModel) throw new Error('No embedding model configured')
     const { embedding } = await embed({ model: embeddingModel, value: query })
     const vectorStr = `[${embedding.join(',')}]`
 
@@ -52,6 +53,7 @@ export async function saveMemory(
 ): Promise<void> {
   try {
     const { embeddingModel } = getLLMProvider()
+    if (!embeddingModel) throw new Error('No embedding model configured')
     const { embedding } = await embed({ model: embeddingModel, value: content })
     const vectorStr = `[${embedding.join(',')}]`
 

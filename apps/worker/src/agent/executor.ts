@@ -120,7 +120,11 @@ export async function executeAgentRun(
     }))
     llmMessages.push({ role: 'user', content: userInput + fileContext })
 
-    const { chatModel } = getLLMProvider()
+    const { chatModel } = getLLMProvider(
+      workspace.llmProvider
+        ? { provider: workspace.llmProvider as import('./provider.js').ProviderName, model: workspace.llmModel ?? undefined }
+        : undefined
+    )
 
     const tools = {
       create_task: createTaskTool(db, redis, workspaceId, userId),

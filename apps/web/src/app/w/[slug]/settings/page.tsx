@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent } from '@/lib/api'
+import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu } from 'lucide-react'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 
@@ -19,11 +19,186 @@ export default function SettingsPage() {
           <p className="text-sm text-muted-foreground mt-1">Manage integrations, skills, and workspace files</p>
         </div>
 
+        <ModelSection slug={slug} />
         <TelegramSection slug={slug} />
         <FilesSection slug={slug} />
         <SkillsSection slug={slug} />
       </div>
     </div>
+  )
+}
+
+// ── Model Section ─────────────────────────────────────────────────────────────
+
+const PROVIDER_LABELS: Record<LLMProvider, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  google: 'Google',
+  groq: 'Groq',
+  mistral: 'Mistral',
+  ollama: 'Ollama (local)',
+}
+
+const PROVIDER_MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
+  anthropic: [
+    { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
+    { value: 'claude-opus-4-5', label: 'Claude Opus 4.5' },
+    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+  ],
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'o1', label: 'o1' },
+    { value: 'o3-mini', label: 'o3-mini' },
+  ],
+  google: [
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-2.0-pro', label: 'Gemini 2.0 Pro' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+  ],
+  groq: [
+    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+    { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant' },
+    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+    { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+  ],
+  mistral: [
+    { value: 'mistral-large-latest', label: 'Mistral Large' },
+    { value: 'mistral-small-latest', label: 'Mistral Small' },
+    { value: 'codestral-latest', label: 'Codestral' },
+    { value: 'open-mistral-nemo', label: 'Mistral Nemo (open)' },
+  ],
+  ollama: [
+    { value: 'llama3.2', label: 'Llama 3.2' },
+    { value: 'llama3.1', label: 'Llama 3.1' },
+    { value: 'mistral', label: 'Mistral 7B' },
+    { value: 'gemma2', label: 'Gemma 2' },
+    { value: 'qwen2.5', label: 'Qwen 2.5' },
+    { value: 'phi4', label: 'Phi-4' },
+  ],
+}
+
+function ModelSection({ slug }: { slug: string }) {
+  const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const [provider, setProvider] = useState<LLMProvider | ''>('')
+  const [model, setModel] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.workspaces.get(slug).then((ws) => {
+      setWorkspace(ws)
+      setProvider(ws.llmProvider ?? '')
+      setModel(ws.llmModel ?? '')
+    })
+  }, [slug])
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const updated = await api.workspaces.update(slug, {
+        llmProvider: provider || null,
+        llmModel: model || null,
+      })
+      setWorkspace(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const models = provider ? PROVIDER_MODELS[provider as LLMProvider] : []
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="font-medium flex items-center gap-2">
+          <Cpu className="h-4 w-4 text-muted-foreground" />
+          AI Model
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Override the server default with a specific provider and model for this workspace
+        </p>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Provider</label>
+            <select
+              value={provider}
+              onChange={(e) => {
+                const p = e.target.value as LLMProvider | ''
+                setProvider(p)
+                setModel(p ? PROVIDER_MODELS[p][0]?.value ?? '' : '')
+              }}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Server default</option>
+              {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((p) => (
+                <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Model</label>
+            {provider ? (
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {models.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+                <option value="">Custom…</option>
+              </select>
+            ) : (
+              <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                Using server default
+              </div>
+            )}
+          </div>
+        </div>
+
+        {provider && model === '' && (
+          <input
+            placeholder="Custom model name (e.g. my-finetuned-model)"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-md bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Save
+          </button>
+          {saved && (
+            <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Saved
+            </span>
+          )}
+          {workspace?.llmProvider && (
+            <span className="text-xs text-muted-foreground">
+              Currently: {PROVIDER_LABELS[workspace.llmProvider]}{workspace.llmModel ? ` · ${workspace.llmModel}` : ''}
+            </span>
+          )}
+        </div>
+      </form>
+    </section>
   )
 }
 

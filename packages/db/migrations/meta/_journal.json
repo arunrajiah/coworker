@@ -43,6 +43,13 @@
       "when": 1745308800000,
       "tag": "0005_file_extraction",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1745395200000,
+      "tag": "0006_workspace_llm_config",
+      "breakpoints": true
     }
   ]
 }

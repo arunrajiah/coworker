@@ -112,3 +112,47 @@ workspaceRoutes.get('/:slug', async (c) => {
 
   return c.json({ ...ws, role: membership.role })
 })
+
+// Update workspace settings (name, llmProvider, llmModel)
+workspaceRoutes.patch(
+  '/:slug',
+  zValidator(
+    'json',
+    z.object({
+      name: z.string().min(2).max(64).optional(),
+      llmProvider: z
+        .enum(['anthropic', 'openai', 'google', 'groq', 'mistral', 'ollama'])
+        .nullable()
+        .optional(),
+      llmModel: z.string().max(128).nullable().optional(),
+    })
+  ),
+  async (c) => {
+    const { db } = getContainer()
+    const slug = c.req.param('slug')
+    const user = c.get('user')
+    const body = c.req.valid('json')
+
+    const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.slug, slug) })
+    if (!ws) return c.json({ error: 'Not found' }, 404)
+
+    const membership = await db.query.workspaceMembers.findFirst({
+      where: eq(workspaceMembers.workspaceId, ws.id),
+    })
+    if (!membership || membership.userId !== user.sub) return c.json({ error: 'Forbidden' }, 403)
+    if (membership.role === 'member') return c.json({ error: 'Insufficient permissions' }, 403)
+
+    const updates: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.name !== undefined) updates.name = body.name
+    if (body.llmProvider !== undefined) updates.llmProvider = body.llmProvider
+    if (body.llmModel !== undefined) updates.llmModel = body.llmModel
+
+    const [updated] = await db
+      .update(workspaces)
+      .set(updates)
+      .where(eq(workspaces.id, ws.id))
+      .returning()
+
+    return c.json({ ...updated, role: membership.role })
+  }
+)

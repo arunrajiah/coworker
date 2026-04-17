@@ -13,6 +13,14 @@ const envSchema = z.object({
   // LLM — at least one required
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+  GOOGLE_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional(),
+  MISTRAL_API_KEY: z.string().optional(),
+  OLLAMA_BASE_URL: z.string().url().optional(),
+
+  // Optional explicit override for which provider/model to use by default
+  LLM_PROVIDER: z.enum(['anthropic', 'openai', 'google', 'groq', 'mistral', 'ollama']).optional(),
+  LLM_MODEL: z.string().optional(),
 
   // Google OAuth (optional — magic link works without it)
   GOOGLE_CLIENT_ID: z.string().optional(),
@@ -56,8 +64,10 @@ export function getEnv(): Env {
       console.error(result.error.flatten().fieldErrors)
       process.exit(1)
     }
-    if (!result.data.OPENAI_API_KEY && !result.data.ANTHROPIC_API_KEY) {
-      console.error('At least one of OPENAI_API_KEY or ANTHROPIC_API_KEY is required')
+    const d = result.data
+    const hasKey = d.OPENAI_API_KEY || d.ANTHROPIC_API_KEY || d.GOOGLE_API_KEY || d.GROQ_API_KEY || d.MISTRAL_API_KEY || d.OLLAMA_BASE_URL
+    if (!hasKey) {
+      console.error('At least one LLM provider key is required (OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, or OLLAMA_BASE_URL)')
       process.exit(1)
     }
     _env = result.data
