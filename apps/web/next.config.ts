@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   transpilePackages: ['@coworker/core'],
   experimental: {
     serverActions: { allowedOrigins: ['localhost:3000'] },
