@@ -7,6 +7,7 @@ import { withWorkspace } from '@coworker/db'
 
 export interface AutopilotJobData {
   ruleId: string
+  ruleName: string
   workspaceId: string
   actionType: string
   actionConfig: Record<string, unknown>
@@ -43,6 +44,7 @@ export async function syncScheduledRules(
       'run-rule',
       {
         ruleId: rule.id,
+        ruleName: rule.name,
         workspaceId: rule.workspaceId,
         actionType: rule.actionType,
         actionConfig: rule.actionConfig as Record<string, unknown>,
@@ -140,6 +142,7 @@ export async function handleGitEvent(
       'run-rule',
       {
         ruleId: rule.id,
+        ruleName: rule.name,
         workspaceId,
         actionType: rule.actionType,
         actionConfig: { ...actionConfig, prompt: fullPrompt, threadId: eventThreadId },
@@ -155,7 +158,7 @@ export async function executeAutopilotRule(
   agentQueue: Queue,
   data: AutopilotJobData
 ): Promise<void> {
-  const { ruleId, workspaceId, actionType, actionConfig } = data
+  const { ruleId, ruleName, workspaceId, actionType, actionConfig } = data
 
   // Update lastRunAt
   await db
@@ -219,7 +222,7 @@ export async function executeAutopilotRule(
     // Notify WebSocket that autopilot fired
     await redis.publish(
       `ws:${workspaceId}`,
-      JSON.stringify({ type: 'autopilot:triggered', ruleId, name: actionConfig.ruleName })
+      JSON.stringify({ type: 'autopilot:triggered', ruleId, ruleName })
     )
   }
 

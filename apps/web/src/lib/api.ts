@@ -288,10 +288,14 @@ export type BoardColumns = Record<'backlog' | 'todo' | 'in_progress' | 'review' 
 export interface Message {
   id: string
   workspaceId: string
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
   threadId: string
   agentRunId: string | null
+  toolCalls: unknown | null
+  userId: string | null
+  externalMsgId: string | null
+  metadata: Record<string, unknown> | null
   channel: string
   createdAt: string
 }

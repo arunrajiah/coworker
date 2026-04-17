@@ -11,6 +11,8 @@ type WSEvent =
   | { type: 'task:updated'; task: import('./api').Task }
   | { type: 'task:deleted'; taskId: string }
   | { type: 'file:extraction_status'; fileId: string; status: string; workspaceId: string }
+  | { type: 'autopilot:triggered'; ruleId: string; ruleName?: string }
+  | { type: 'git:event'; connectionId: string; workspaceId: string; provider: string; repo: string; event: Record<string, unknown> }
 
 type EventHandler = (event: WSEvent) => void
 

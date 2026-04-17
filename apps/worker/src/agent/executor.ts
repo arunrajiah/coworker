@@ -20,7 +20,7 @@ import type { TemplateType, ActiveSkill } from '@coworker/core'
 export interface AgentJobData {
   workspaceId: string
   threadId: string
-  messageId: string
+  messageId?: string  // populated by chat/telegram; autopilot omits it (executor loads thread history instead)
   agentRunId: string
   userId: string
 }

@@ -106,6 +106,7 @@ autopilotRoutes.post('/:id/run', async (c) => {
     'autopilot:run',
     JSON.stringify({
       ruleId: rule.id,
+      ruleName: rule.name,
       workspaceId: rule.workspaceId,
       actionType: rule.actionType,
       actionConfig: rule.actionConfig,
