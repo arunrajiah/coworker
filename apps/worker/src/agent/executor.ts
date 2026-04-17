@@ -14,6 +14,7 @@ import { listFilesTool } from './tools/list-files.js'
 import { readFileTool } from './tools/read-file.js'
 import { planWorkTool } from './tools/plan-work.js'
 import { listIssuesTool, createIssueTool, updateIssueTool, listPRsTool, listGitConnectionsTool } from './tools/git-issues.js'
+import { listVercelConnectionsTool, listDeploymentsTool, triggerDeploymentTool, getDeploymentStatusTool } from './tools/vercel.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -139,6 +140,10 @@ export async function executeAgentRun(
       create_issue: createIssueTool(db, workspaceId),
       update_issue: updateIssueTool(db, workspaceId),
       list_pull_requests: listPRsTool(db, workspaceId),
+      list_vercel_connections: listVercelConnectionsTool(db, workspaceId),
+      list_deployments: listDeploymentsTool(db, workspaceId),
+      trigger_deployment: triggerDeploymentTool(db, workspaceId),
+      get_deployment_status: getDeploymentStatusTool(db, workspaceId),
     }
 
     const result = await generateText({

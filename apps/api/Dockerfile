@@ -11,6 +11,7 @@ COPY packages/adapters/storage-local/package.json packages/adapters/storage-loca
 COPY packages/adapters/email-nodemailer/package.json packages/adapters/email-nodemailer/
 COPY packages/adapters/billing-noop/package.json packages/adapters/billing-noop/
 COPY packages/adapters/git/package.json packages/adapters/git/
+COPY packages/adapters/vercel/package.json packages/adapters/vercel/
 COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/

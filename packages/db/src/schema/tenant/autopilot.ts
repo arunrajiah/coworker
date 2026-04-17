@@ -6,6 +6,8 @@ export const autopilotTriggerEnum = pgEnum('autopilot_trigger', [
   'task_created',
   'task_status_changed',
   'message_received',
+  'git_issue_opened',
+  'git_pr_opened',
 ])
 
 export const autopilotActionEnum = pgEnum('autopilot_action', [

@@ -3,7 +3,7 @@ import { Redis } from 'ioredis'
 import { getEnv } from '@coworker/config'
 import { createClient } from '@coworker/db'
 import { executeAgentRun, type AgentJobData } from './agent/executor.js'
-import { syncScheduledRules, executeAutopilotRule, type AutopilotJobData } from './autopilot/scheduler.js'
+import { syncScheduledRules, executeAutopilotRule, handleGitEvent, type AutopilotJobData } from './autopilot/scheduler.js'
 import { startTelegramBot } from './integrations/telegram.js'
 import { processFile, type FileIngestionJobData } from './ingestion/index.js'
 
@@ -60,16 +60,22 @@ autopilotWorker.on('failed', (job, err) =>
   console.error(`[autopilot] Job ${job?.id} failed: ${err.message}`)
 )
 
-// ── Listen for rule sync + manual run signals from the API ───────────────────
+// ── Listen for rule sync, manual run signals, and git events ─────────────────
 
 const syncSubscriber = redis.duplicate()
-await syncSubscriber.subscribe('autopilot:sync', 'autopilot:run')
+await syncSubscriber.subscribe('autopilot:sync', 'autopilot:run', 'git:events')
 syncSubscriber.on('message', async (channel, message) => {
   if (channel === 'autopilot:sync') {
     await syncScheduledRules(db, autopilotQueue)
   } else if (channel === 'autopilot:run') {
     const data = JSON.parse(message) as AutopilotJobData
     await autopilotQueue.add('run-rule', data, { attempts: 2 })
+  } else if (channel === 'git:events') {
+    const gitEvent = JSON.parse(message) as {
+      type: string; action?: string; connectionId: string
+      workspaceId: string; provider: string; repo: string; payload: unknown
+    }
+    await handleGitEvent(db, redis, autopilotQueue, agentQueue, gitEvent)
   }
 })
 

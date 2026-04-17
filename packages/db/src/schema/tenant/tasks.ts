@@ -1,4 +1,4 @@
-import { uuid, text, timestamp, boolean, date, jsonb, pgEnum, index } from 'drizzle-orm/pg-core'
+import { uuid, text, timestamp, boolean, date, jsonb, integer, pgEnum, index } from 'drizzle-orm/pg-core'
 import { tenantSchema } from './_schema'
 
 export const taskStatusEnum = pgEnum('task_status', [
@@ -42,6 +42,8 @@ export const tasks = tenantSchema.table(
     parentId: uuid('parent_id'),
     agentNotes: text('agent_notes'),
     metadata: jsonb('metadata'),
+    gitConnectionId: uuid('git_connection_id'),
+    gitIssueNumber: integer('git_issue_number'),
     createdBy: uuid('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -50,6 +52,7 @@ export const tasks = tenantSchema.table(
     workspaceIdx: index('tasks_workspace_idx').on(t.workspaceId),
     statusIdx: index('tasks_status_idx').on(t.workspaceId, t.status),
     domainIdx: index('tasks_domain_idx').on(t.workspaceId, t.domain),
+    gitIdx: index('tasks_git_idx').on(t.workspaceId, t.gitConnectionId),
   })
 )
 

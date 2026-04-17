@@ -35,6 +35,9 @@ importers:
       '@coworker/adapter-storage-local':
         specifier: workspace:*
         version: link:../../packages/adapters/storage-local
+      '@coworker/adapter-vercel':
+        specifier: workspace:*
+        version: link:../../packages/adapters/vercel
       '@coworker/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -196,6 +199,9 @@ importers:
       '@coworker/adapter-storage-local':
         specifier: workspace:*
         version: link:../../packages/adapters/storage-local
+      '@coworker/adapter-vercel':
+        specifier: workspace:*
+        version: link:../../packages/adapters/vercel
       '@coworker/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -266,6 +272,8 @@ importers:
       '@coworker/core':
         specifier: workspace:*
         version: link:../../core
+
+  packages/adapters/vercel: {}
 
   packages/config:
     dependencies:

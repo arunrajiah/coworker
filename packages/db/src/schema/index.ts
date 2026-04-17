@@ -4,6 +4,7 @@ export * from './platform/workspaces'
 export * from './platform/sessions'
 export * from './platform/telegram'
 export * from './platform/git'
+export * from './platform/vercel'
 
 // Tenant schema
 export * from './tenant/tasks'

@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Bot, Loader2, AlertCircle, ChevronDown } from 'lucide-react'
+import { Plus, Bot, Loader2, ChevronDown, GitBranch } from 'lucide-react'
 import { api, type Task, type TaskStatus, type TaskDomain, type BoardColumns } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
@@ -434,13 +434,21 @@ function TaskCard({
         <span className={cn('h-2 w-2 rounded-full shrink-0', PRIORITY_DOT[task.priority] ?? 'bg-slate-300')} title={task.priority} />
       </div>
 
-      {/* Agent owned badge */}
-      {task.agentOwned && !isAgentWorking && (
-        <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <Bot className="h-3 w-3" />
-          <span>AI task</span>
-        </div>
-      )}
+      {/* Bottom badges */}
+      <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+        {task.agentOwned && !isAgentWorking && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Bot className="h-3 w-3" />
+            <span>AI task</span>
+          </div>
+        )}
+        {task.gitConnectionId && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <GitBranch className="h-3 w-3" />
+            {task.gitIssueNumber ? <span>#{task.gitIssueNumber}</span> : <span>git</span>}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -189,6 +189,46 @@ export const api = {
         `/api/workspaces/${slug}/git/${connectionId}/test`,
         { workspaceSlug: slug }
       ),
+    sync: (slug: string, connectionId: string) =>
+      apiRequest<{ ok: boolean; created: number; updated: number; total: number }>(
+        `/api/workspaces/${slug}/git/${connectionId}/sync`,
+        { method: 'POST', workspaceSlug: slug }
+      ),
+  },
+
+  vercel: {
+    list: (slug: string) =>
+      apiRequest<VercelConnection[]>(`/api/workspaces/${slug}/vercel`, { workspaceSlug: slug }),
+    lookupProjects: (slug: string, data: { accessToken: string; teamId?: string }) =>
+      apiRequest<{ user: { username: string; email: string }; teams: { id: string; slug: string; name: string }[]; projects: { id: string; name: string; framework: string | null }[] }>(
+        `/api/workspaces/${slug}/vercel/projects`,
+        { method: 'POST', body: JSON.stringify(data), workspaceSlug: slug }
+      ),
+    connect: (slug: string, data: {
+      accessToken: string; teamId?: string; teamSlug?: string; teamName?: string
+      projectId: string; projectName: string; framework?: string; gitConnectionId?: string
+    }) =>
+      apiRequest<VercelConnection>(`/api/workspaces/${slug}/vercel`, {
+        method: 'POST', body: JSON.stringify(data), workspaceSlug: slug,
+      }),
+    update: (slug: string, connectionId: string, data: { gitConnectionId?: string | null }) =>
+      apiRequest<VercelConnection>(`/api/workspaces/${slug}/vercel/${connectionId}`, {
+        method: 'PATCH', body: JSON.stringify(data), workspaceSlug: slug,
+      }),
+    disconnect: (slug: string, connectionId: string) =>
+      apiRequest(`/api/workspaces/${slug}/vercel/${connectionId}`, {
+        method: 'DELETE', workspaceSlug: slug,
+      }),
+    deployments: (slug: string, connectionId: string) =>
+      apiRequest<{ deployments: VercelDeployment[] }>(
+        `/api/workspaces/${slug}/vercel/${connectionId}/deployments`,
+        { workspaceSlug: slug }
+      ),
+    deploy: (slug: string, connectionId: string) =>
+      apiRequest<{ deployment: VercelDeployment }>(
+        `/api/workspaces/${slug}/vercel/${connectionId}/deploy`,
+        { method: 'POST', workspaceSlug: slug }
+      ),
   },
 
   chat: {
@@ -236,6 +276,9 @@ export interface Task {
   agentOwned: boolean
   queuedForAgent: boolean
   agentNotes: string | null
+  gitConnectionId: string | null
+  gitIssueNumber: number | null
+  metadata: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
 }
@@ -317,6 +360,29 @@ export interface GitConnection {
   webhookSecret?: string
   connectedBy: string
   connectedAt: string
+}
+
+export interface VercelConnection {
+  id: string
+  workspaceId: string
+  teamId: string | null
+  teamSlug: string | null
+  teamName: string | null
+  projectId: string
+  projectName: string
+  framework: string | null
+  gitConnectionId: string | null
+  connectedBy: string
+  connectedAt: string
+}
+
+export interface VercelDeployment {
+  uid: string
+  name: string
+  url: string
+  state: 'BUILDING' | 'ERROR' | 'INITIALIZING' | 'QUEUED' | 'READY' | 'CANCELED'
+  createdAt: number
+  target: 'production' | 'staging' | null
 }
 
 export interface AgentRun {

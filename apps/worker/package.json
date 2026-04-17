@@ -16,6 +16,7 @@
     "@ai-sdk/mistral": "^1.2.8",
     "@ai-sdk/openai": "^1.0.0",
     "@coworker/adapter-git": "workspace:^",
+    "@coworker/adapter-vercel": "workspace:*",
     "@coworker/adapter-storage-local": "workspace:*",
     "@coworker/config": "workspace:*",
     "@coworker/core": "workspace:*",

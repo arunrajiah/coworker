@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu, GitBranch, Copy, RefreshCw, Unplug } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider } from '@/lib/api'
+import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu, GitBranch, Copy, RefreshCw, Unplug, RotateCcw, Triangle, ExternalLink } from 'lucide-react'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 
@@ -21,6 +21,7 @@ export default function SettingsPage() {
 
         <ModelSection slug={slug} />
         <GitSection slug={slug} />
+        <VercelSection slug={slug} />
         <TelegramSection slug={slug} />
         <FilesSection slug={slug} />
         <SkillsSection slug={slug} />
@@ -220,6 +221,8 @@ function GitSection({ slug }: { slug: string }) {
   const [form, setForm] = useState({ provider: 'github' as GitProvider, repoOwner: '', repoName: '', accessToken: '' })
   const [newConn, setNewConn] = useState<(GitConnection & { webhookSecret: string }) | null>(null)
   const [testingId, setTestingId] = useState<string | null>(null)
+  const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [syncResults, setSyncResults] = useState<Record<string, string>>({})
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; label: string }>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
@@ -261,6 +264,18 @@ function GitSection({ slug }: { slug: string }) {
     }
   }
 
+  async function handleSync(id: string) {
+    setSyncingId(id)
+    try {
+      const result = await api.git.sync(slug, id)
+      setSyncResults((prev) => ({ ...prev, [id]: `Synced: ${result.created} new, ${result.updated} updated (${result.total} total issues)` }))
+    } catch (err) {
+      setSyncResults((prev) => ({ ...prev, [id]: err instanceof Error ? err.message : 'Sync failed' }))
+    } finally {
+      setSyncingId(null)
+    }
+  }
+
   async function copyWebhookUrl(conn: GitConnection) {
     const url = `${WEBHOOK_BASE}/webhooks/git/${conn.id}`
     await navigator.clipboard.writeText(url)
@@ -299,6 +314,16 @@ function GitSection({ slug }: { slug: string }) {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
+                        onClick={() => handleSync(conn.id)}
+                        disabled={syncingId === conn.id}
+                        title="Sync issues to board"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {syncingId === conn.id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <RotateCcw className="h-4 w-4" />}
+                      </button>
+                      <button
                         onClick={() => handleTest(conn.id)}
                         disabled={testingId === conn.id}
                         title="Test connection"
@@ -321,6 +346,9 @@ function GitSection({ slug }: { slug: string }) {
                     <p className={`text-xs ${testResults[conn.id].ok ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
                       {testResults[conn.id].ok ? '✓' : '✗'} {testResults[conn.id].label}
                     </p>
+                  )}
+                  {syncResults[conn.id] && (
+                    <p className="text-xs text-muted-foreground">{syncResults[conn.id]}</p>
                   )}
                   <div className="flex items-center gap-2">
                     <p className="text-xs text-muted-foreground">Webhook URL:</p>
@@ -401,6 +429,318 @@ function GitSection({ slug }: { slug: string }) {
               Connect
             </button>
           </form>
+        </>
+      )}
+    </section>
+  )
+}
+
+// ── Vercel Section ────────────────────────────────────────────────────────────
+
+const DEPLOYMENT_STATE_COLOR: Record<string, string> = {
+  READY: 'text-green-600 dark:text-green-400',
+  BUILDING: 'text-blue-500 animate-pulse',
+  INITIALIZING: 'text-blue-400 animate-pulse',
+  QUEUED: 'text-muted-foreground',
+  ERROR: 'text-red-500',
+  CANCELED: 'text-muted-foreground',
+}
+
+function VercelSection({ slug }: { slug: string }) {
+  const [connections, setConnections] = useState<VercelConnection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [step, setStep] = useState<'idle' | 'token' | 'project'>('idle')
+  const [tokenForm, setTokenForm] = useState({ accessToken: '', teamId: '' })
+  const [lookupResult, setLookupResult] = useState<{
+    user: { username: string; email: string }
+    teams: { id: string; slug: string; name: string }[]
+    projects: { id: string; name: string; framework: string | null }[]
+  } | null>(null)
+  const [looking, setLooking] = useState(false)
+  const [selectedProject, setSelectedProject] = useState('')
+  const [gitConnectionId, setGitConnectionId] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [deployingId, setDeployingId] = useState<string | null>(null)
+  const [deployments, setDeployments] = useState<Record<string, VercelDeployment[]>>({})
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [gitConnections, setGitConnections] = useState<{ id: string; provider: string; repoOwner: string; repoName: string }[]>([])
+
+  useEffect(() => {
+    Promise.all([
+      api.vercel.list(slug).then(setConnections).catch(() => {}),
+      api.git.list(slug).then(setGitConnections).catch(() => {}),
+    ]).finally(() => setLoading(false))
+  }, [slug])
+
+  async function handleLookup(e: React.FormEvent) {
+    e.preventDefault()
+    setLooking(true)
+    try {
+      const result = await api.vercel.lookupProjects(slug, {
+        accessToken: tokenForm.accessToken,
+        teamId: tokenForm.teamId || undefined,
+      })
+      setLookupResult(result)
+      setStep('project')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Invalid token')
+    } finally {
+      setLooking(false)
+    }
+  }
+
+  async function handleConnect(e: React.FormEvent) {
+    e.preventDefault()
+    if (!lookupResult || !selectedProject) return
+    setConnecting(true)
+    try {
+      const project = lookupResult.projects.find((p) => p.id === selectedProject)
+      if (!project) return
+      const team = tokenForm.teamId ? lookupResult.teams.find((t) => t.id === tokenForm.teamId) : null
+      const conn = await api.vercel.connect(slug, {
+        accessToken: tokenForm.accessToken,
+        teamId: team?.id,
+        teamSlug: team?.slug,
+        teamName: team?.name,
+        projectId: project.id,
+        projectName: project.name,
+        framework: project.framework ?? undefined,
+        gitConnectionId: gitConnectionId || undefined,
+      })
+      setConnections((prev) => [conn, ...prev])
+      setStep('idle')
+      setTokenForm({ accessToken: '', teamId: '' })
+      setLookupResult(null)
+      setSelectedProject('')
+      setGitConnectionId('')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  async function handleDisconnect(id: string) {
+    await api.vercel.disconnect(slug, id)
+    setConnections((prev) => prev.filter((c) => c.id !== id))
+  }
+
+  async function handleDeploy(conn: VercelConnection) {
+    setDeployingId(conn.id)
+    try {
+      const { deployment } = await api.vercel.deploy(slug, conn.id)
+      alert(`Deployment triggered: ${deployment.url ?? deployment.uid} (${deployment.state})`)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Deploy failed')
+    } finally {
+      setDeployingId(null)
+    }
+  }
+
+  async function handleLoadDeployments(conn: VercelConnection) {
+    if (expandedId === conn.id) { setExpandedId(null); return }
+    setExpandedId(conn.id)
+    if (deployments[conn.id]) return
+    try {
+      const { deployments: list } = await api.vercel.deployments(slug, conn.id)
+      setDeployments((prev) => ({ ...prev, [conn.id]: list }))
+    } catch {}
+  }
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="font-medium flex items-center gap-2">
+          <Triangle className="h-4 w-4 text-muted-foreground" />
+          Vercel
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Connect Vercel projects to monitor deployments and trigger deploys from the agent
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+        </div>
+      ) : (
+        <>
+          {connections.length > 0 && (
+            <div className="space-y-2">
+              {connections.map((conn) => (
+                <div key={conn.id} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {conn.teamName && (
+                        <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+                          {conn.teamName}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium truncate">{conn.projectName}</span>
+                      {conn.framework && (
+                        <span className="text-xs text-muted-foreground shrink-0">{conn.framework}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleDeploy(conn)}
+                        disabled={deployingId === conn.id}
+                        title="Trigger deployment"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {deployingId === conn.id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <RefreshCw className="h-4 w-4" />}
+                      </button>
+                      <button
+                        onClick={() => handleLoadDeployments(conn)}
+                        title="View deployments"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDisconnect(conn.id)}
+                        title="Disconnect"
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Unplug className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {conn.gitConnectionId && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <GitBranch className="h-3 w-3" />
+                      Linked to git repo
+                    </p>
+                  )}
+
+                  {expandedId === conn.id && (
+                    <div className="border-t border-border pt-2 space-y-1">
+                      {!deployments[conn.id] ? (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Loading deployments...
+                        </div>
+                      ) : deployments[conn.id].length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No deployments yet</p>
+                      ) : (
+                        deployments[conn.id].slice(0, 5).map((d) => (
+                          <div key={d.uid} className="flex items-center justify-between text-xs">
+                            <span className={DEPLOYMENT_STATE_COLOR[d.state] ?? 'text-muted-foreground'}>
+                              {d.state}
+                            </span>
+                            <span className="text-muted-foreground">{d.target ?? 'preview'}</span>
+                            <span className="text-muted-foreground font-mono truncate max-w-[120px]">{d.url}</span>
+                            <span className="text-muted-foreground">
+                              {new Date(d.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {step === 'idle' && (
+            <button
+              onClick={() => setStep('token')}
+              className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors w-full justify-center"
+            >
+              <Plus className="h-3.5 w-3.5" /> Connect Vercel account
+            </button>
+          )}
+
+          {step === 'token' && (
+            <form onSubmit={handleLookup} className="rounded-lg border border-dashed border-border p-4 space-y-3">
+              <p className="text-sm font-medium">Step 1 — Enter your Vercel token</p>
+              <input
+                required
+                type="password"
+                placeholder="Vercel API token"
+                value={tokenForm.accessToken}
+                onChange={(e) => setTokenForm((f) => ({ ...f, accessToken: e.target.value }))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                placeholder="Team ID (optional — leave blank for personal account)"
+                value={tokenForm.teamId}
+                onChange={(e) => setTokenForm((f) => ({ ...f, teamId: e.target.value }))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={looking}
+                  className="inline-flex items-center gap-2 rounded-md bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 disabled:opacity-50"
+                >
+                  {looking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Load projects
+                </button>
+                <button type="button" onClick={() => setStep('idle')} className="text-sm text-muted-foreground hover:text-foreground">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === 'project' && lookupResult && (
+            <form onSubmit={handleConnect} className="rounded-lg border border-border p-4 space-y-3">
+              <div>
+                <p className="text-sm font-medium">Step 2 — Select a project</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Signed in as {lookupResult.user.username} ({lookupResult.user.email})</p>
+              </div>
+
+              <select
+                required
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select a project…</option>
+                {lookupResult.projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.framework ? ` (${p.framework})` : ''}
+                  </option>
+                ))}
+              </select>
+
+              {gitConnections.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Link to git repo (optional)</label>
+                  <select
+                    value={gitConnectionId}
+                    onChange={(e) => setGitConnectionId(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">No link</option>
+                    {gitConnections.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.provider} · {g.repoOwner}/{g.repoName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={connecting || !selectedProject}
+                  className="inline-flex items-center gap-2 rounded-md bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 disabled:opacity-50"
+                >
+                  {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                  Connect project
+                </button>
+                <button type="button" onClick={() => { setStep('token'); setLookupResult(null) }} className="text-sm text-muted-foreground hover:text-foreground">
+                  Back
+                </button>
+              </div>
+            </form>
+          )}
         </>
       )}
     </section>

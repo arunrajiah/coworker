@@ -13,6 +13,7 @@
     "@coworker/adapter-billing-noop": "workspace:*",
     "@coworker/adapter-email-nodemailer": "workspace:*",
     "@coworker/adapter-git": "workspace:^",
+    "@coworker/adapter-vercel": "workspace:*",
     "@coworker/adapter-storage-local": "workspace:*",
     "@coworker/config": "workspace:*",
     "@coworker/core": "workspace:*",
