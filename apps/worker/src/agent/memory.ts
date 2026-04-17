@@ -47,7 +47,8 @@ export async function saveMemory(
   workspaceId: string,
   content: string,
   sourceType: string,
-  sourceId?: string
+  sourceId?: string,
+  metadata?: Record<string, unknown>
 ): Promise<void> {
   try {
     const { embeddingModel } = getLLMProvider()
@@ -56,8 +57,8 @@ export async function saveMemory(
 
     await db.execute(
       sql`
-        INSERT INTO tenant.memories (id, workspace_id, content, embedding, source_type, source_id)
-        VALUES (gen_random_uuid(), ${workspaceId}::uuid, ${content}, ${vectorStr}::vector, ${sourceType}, ${sourceId ?? null}::uuid)
+        INSERT INTO tenant.memories (id, workspace_id, content, embedding, source_type, source_id, metadata)
+        VALUES (gen_random_uuid(), ${workspaceId}::uuid, ${content}, ${vectorStr}::vector, ${sourceType}, ${sourceId ?? null}::uuid, ${metadata ? JSON.stringify(metadata) : null}::jsonb)
       `
     )
   } catch {
@@ -68,6 +69,7 @@ export async function saveMemory(
         content,
         sourceType,
         sourceId: sourceId ?? null,
+        metadata: metadata ?? null,
       })
     )
   }

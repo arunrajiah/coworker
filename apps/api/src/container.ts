@@ -5,6 +5,12 @@ import { ConsoleEmailProvider, NodemailerEmailProvider } from '@coworker/adapter
 import { NoopBillingProvider } from '@coworker/adapter-billing-noop'
 import type { IFileStorage, IEmailProvider, IBillingProvider } from '@coworker/core'
 import { Redis } from 'ioredis'
+import { Queue } from 'bullmq'
+
+export interface FileIngestionJobData {
+  workspaceId: string
+  fileId: string
+}
 
 export interface Container {
   db: ReturnType<typeof createClient>
@@ -12,6 +18,7 @@ export interface Container {
   storage: IFileStorage
   email: IEmailProvider
   billing: IBillingProvider
+  fileIngestionQueue: Queue<FileIngestionJobData>
 }
 
 let _container: Container | undefined
@@ -32,7 +39,9 @@ export function getContainer(): Container {
 
     const billing: IBillingProvider = new NoopBillingProvider()
 
-    _container = { db, redis, storage, email, billing }
+    const fileIngestionQueue = new Queue<FileIngestionJobData>('file-ingestion', { connection: redis })
+
+    _container = { db, redis, storage, email, billing, fileIngestionQueue }
   }
   return _container
 }

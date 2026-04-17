@@ -11,6 +11,7 @@ import { createTaskTool } from './tools/create-task.js'
 import { searchTasksTool } from './tools/search-tasks.js'
 import { updateTaskTool } from './tools/update-task.js'
 import { listFilesTool } from './tools/list-files.js'
+import { readFileTool } from './tools/read-file.js'
 import { planWorkTool } from './tools/plan-work.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
@@ -126,6 +127,7 @@ export async function executeAgentRun(
       search_tasks: searchTasksTool(db, workspaceId),
       update_task: updateTaskTool(db, redis, workspaceId),
       list_files: listFilesTool(db, workspaceId),
+      read_file: readFileTool(db, workspaceId),
       plan_work: planWorkTool(db, redis, workspaceId, userId),
     }
 

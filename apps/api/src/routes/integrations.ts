@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
-import { telegramConnections, files } from '@coworker/db'
+import { eq, sql } from 'drizzle-orm'
+import { telegramConnections, files, memories } from '@coworker/db'
 import { withWorkspace } from '@coworker/db'
 import { getContainer } from '../container.js'
 import { authMiddleware } from '../middleware/auth.js'
@@ -101,6 +101,8 @@ integrationRoutes.post('/files', async (c) => {
 
   const { url } = await storage.upload(key, buffer, file.type)
 
+  const { fileIngestionQueue } = getContainer()
+
   const [record] = await withWorkspace(db, workspaceId, async (tx) =>
     tx
       .insert(files)
@@ -115,6 +117,8 @@ integrationRoutes.post('/files', async (c) => {
       })
       .returning()
   )
+
+  await fileIngestionQueue.add('ingest', { workspaceId, fileId: record.id })
 
   return c.json({ ...record, url }, 201)
 })
@@ -155,4 +159,27 @@ integrationRoutes.delete('/files/:fileId', async (c) => {
   await db.delete(files).where(eq(files.id, fileId))
 
   return c.json({ ok: true })
+})
+
+// Get extracted text chunks for a file
+integrationRoutes.get('/files/:fileId/extracted-text', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const fileId = c.req.param('fileId')
+  const { db } = getContainer()
+
+  const file = await db.query.files.findFirst({ where: eq(files.id, fileId) })
+  if (!file || file.workspaceId !== workspaceId) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  const chunks = await db.execute(
+    sql`SELECT content, metadata FROM tenant.memories WHERE workspace_id = ${workspaceId}::uuid AND source_type = 'file' AND source_id = ${fileId}::uuid ORDER BY (metadata->>'chunkIndex')::int NULLS LAST`
+  )
+
+  return c.json({
+    fileId,
+    extractionStatus: file.extractionStatus,
+    extractedAt: file.extractedAt,
+    chunks: (chunks as any[]).map((r: any) => ({ content: r.content as string, metadata: r.metadata })),
+  })
 })

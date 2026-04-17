@@ -141,6 +141,11 @@ export const api = {
         method: 'DELETE',
         workspaceSlug: slug,
       }),
+    getExtractedText: (slug: string, fileId: string) =>
+      apiRequest<ExtractedFileContent>(
+        `/api/workspaces/${slug}/integrations/files/${fileId}/extracted-text`,
+        { workspaceSlug: slug }
+      ),
   },
 
   autopilot: {
@@ -245,6 +250,15 @@ export interface WorkspaceFile {
   storageKey: string
   url: string
   createdAt: string
+  extractionStatus: 'pending' | 'processing' | 'extracted' | 'failed'
+  extractedAt: string | null
+}
+
+export interface ExtractedFileContent {
+  fileId: string
+  extractionStatus: string
+  extractedAt: string | null
+  chunks: Array<{ content: string; metadata: Record<string, unknown> | null }>
 }
 
 export type AutopilotTrigger = 'schedule' | 'task_created' | 'task_status_changed' | 'message_received'

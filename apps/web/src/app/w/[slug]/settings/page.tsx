@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile } from '@/lib/api'
+import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock } from 'lucide-react'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent } from '@/lib/api'
+import { WorkspaceSocket } from '@/lib/ws'
+import { useAuthStore } from '@/store/auth'
 
 export default function SettingsPage() {
   const params = useParams()
@@ -155,18 +157,132 @@ function TelegramSection({ slug }: { slug: string }) {
 
 // ── Files Section ─────────────────────────────────────────────────────────────
 
+function ExtractionStatusBadge({ status }: { status: WorkspaceFile['extractionStatus'] }) {
+  if (status === 'extracted') {
+    return (
+      <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded-full">
+        <CheckCircle2 className="h-3 w-3" /> Ready
+      </span>
+    )
+  }
+  if (status === 'processing') {
+    return (
+      <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded-full">
+        <Loader2 className="h-3 w-3 animate-spin" /> Processing
+      </span>
+    )
+  }
+  if (status === 'failed') {
+    return (
+      <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded-full">
+        <AlertCircle className="h-3 w-3" /> Failed
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+      <Clock className="h-3 w-3" /> Pending
+    </span>
+  )
+}
+
+function FilePreviewModal({ file, slug, onClose }: { file: WorkspaceFile; slug: string; onClose: () => void }) {
+  const [content, setContent] = useState<ExtractedFileContent | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.integrations.getExtractedText(slug, file.id)
+      .then(setContent)
+      .catch(() => setContent(null))
+      .finally(() => setLoading(false))
+  }, [slug, file.id])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="relative bg-background rounded-xl border border-border shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="font-medium text-sm truncate">{file.name}</span>
+            <ExtractionStatusBadge status={file.extractionStatus} />
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground shrink-0 ml-2">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-4 flex-1">
+          {loading ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading extracted content...
+            </div>
+          ) : !content || content.chunks.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              {file.extractionStatus === 'pending' || file.extractionStatus === 'processing'
+                ? 'Content is still being extracted. Check back in a moment.'
+                : file.extractionStatus === 'failed'
+                ? 'Extraction failed for this file.'
+                : 'No text content found in this file.'}
+            </div>
+          ) : (
+            <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed">
+              {content.chunks.map((c) => c.content).join('\n\n---\n\n')}
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function FilesSection({ slug }: { slug: string }) {
   const [files, setFiles] = useState<WorkspaceFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [previewFile, setPreviewFile] = useState<WorkspaceFile | null>(null)
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const token = useAuthStore((s) => s.token)
 
   useEffect(() => {
     api.integrations.listFiles(slug).then((f) => {
       setFiles(f)
       setLoading(false)
     }).catch(() => setLoading(false))
+    api.workspaces.get(slug).then((ws) => setWorkspaceId(ws.id))
   }, [slug])
+
+  // Subscribe to extraction status updates
+  useEffect(() => {
+    if (!workspaceId || !token) return
+
+    const socket = new WorkspaceSocket(workspaceId, token)
+    socket.connect()
+
+    const unsub = socket.on((event) => {
+      if (event.type === 'file:extraction_status') {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === event.fileId
+              ? { ...f, extractionStatus: event.status as WorkspaceFile['extractionStatus'] }
+              : f
+          )
+        )
+        setPreviewFile((prev) =>
+          prev?.id === event.fileId
+            ? { ...prev, extractionStatus: event.status as WorkspaceFile['extractionStatus'] }
+            : prev
+        )
+      }
+    })
+
+    return () => {
+      unsub()
+      socket.disconnect()
+    }
+  }, [workspaceId, token])
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -186,6 +302,7 @@ function FilesSection({ slug }: { slug: string }) {
   async function handleDelete(fileId: string) {
     await api.integrations.deleteFile(slug, fileId)
     setFiles((prev) => prev.filter((f) => f.id !== fileId))
+    if (previewFile?.id === fileId) setPreviewFile(null)
   }
 
   return (
@@ -229,21 +346,43 @@ function FilesSection({ slug }: { slug: string }) {
             >
               <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{file.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  <ExtractionStatusBadge status={file.extractionStatus} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {file.mimeType ?? 'unknown'} · {file.sizeBytes ? formatBytes(file.sizeBytes) : '?'}
                   {' · '}{new Date(file.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              <button
-                onClick={() => handleDelete(file.id)}
-                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                {file.extractionStatus === 'extracted' && (
+                  <button
+                    onClick={() => setPreviewFile(file)}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Preview extracted text"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDelete(file.id)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
+      )}
+
+      {previewFile && (
+        <FilePreviewModal
+          file={previewFile}
+          slug={slug}
+          onClose={() => setPreviewFile(null)}
+        />
       )}
     </section>
   )

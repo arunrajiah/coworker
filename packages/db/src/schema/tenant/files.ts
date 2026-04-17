@@ -10,6 +10,8 @@ export const files = tenantSchema.table('files', {
   storageKey: text('storage_key').notNull(),
   storageBackend: text('storage_backend').notNull().default('local'),
   uploadedBy: uuid('uploaded_by').notNull(),
+  extractionStatus: text('extraction_status').notNull().default('pending'),
+  extractedAt: timestamp('extracted_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

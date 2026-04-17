@@ -10,6 +10,7 @@ type WSEvent =
   | { type: 'task:created'; task: import('./api').Task }
   | { type: 'task:updated'; task: import('./api').Task }
   | { type: 'task:deleted'; taskId: string }
+  | { type: 'file:extraction_status'; fileId: string; status: string; workspaceId: string }
 
 type EventHandler = (event: WSEvent) => void
 

@@ -12,15 +12,18 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^1.1.4",
     "@ai-sdk/openai": "^1.0.0",
+    "@coworker/adapter-storage-local": "workspace:*",
     "@coworker/config": "workspace:*",
     "@coworker/core": "workspace:*",
     "@coworker/db": "workspace:*",
+    "@types/pdf-parse": "^1.1.5",
     "ai": "^4.0.35",
-    "drizzle-orm": "^0.36.4",
-    "nanoid": "^5.0.8",
-    "telegraf": "^4.16.3",
     "bullmq": "^5.28.0",
+    "drizzle-orm": "^0.36.4",
     "ioredis": "^5.4.1",
+    "nanoid": "^5.0.8",
+    "pdf-parse": "^2.4.5",
+    "telegraf": "^4.16.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
