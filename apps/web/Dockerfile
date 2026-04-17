@@ -17,7 +17,9 @@ RUN pnpm install --frozen-lockfile
 
 FROM base AS build
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy all of /app from deps (includes root + per-app node_modules with binaries)
+COPY --from=deps /app ./
+# Overlay with actual source files
 COPY . .
 RUN pnpm --filter=@coworker/web build
 
