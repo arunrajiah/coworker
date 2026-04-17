@@ -1,0 +1,14 @@
+{
+  "name": "@coworker/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./storage": "./src/storage/interfaces.ts",
+    "./email": "./src/email/interfaces.ts",
+    "./billing": "./src/billing/interfaces.ts",
+    "./agent": "./src/agent/types.ts",
+    "./templates": "./src/templates/index.ts"
+  }
+}

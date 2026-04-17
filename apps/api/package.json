@@ -1,0 +1,37 @@
+{
+  "name": "@coworker/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@coworker/adapter-billing-noop": "workspace:*",
+    "@coworker/adapter-email-nodemailer": "workspace:*",
+    "@coworker/adapter-storage-local": "workspace:*",
+    "@coworker/config": "workspace:*",
+    "@coworker/core": "workspace:*",
+    "@coworker/db": "workspace:*",
+    "drizzle-orm": "^0.36.4",
+    "@hono/node-server": "^1.13.7",
+    "@hono/zod-validator": "^0.4.3",
+    "bullmq": "^5.28.0",
+    "hono": "^4.6.17",
+    "ioredis": "^5.4.1",
+    "jose": "^5.9.6",
+    "nanoid": "^5.0.8",
+    "slug": "^9.1.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/slug": "^5.0.9",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
