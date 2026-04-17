@@ -139,6 +139,26 @@ export const api = {
       }),
   },
 
+  autopilot: {
+    list: (slug: string) => apiRequest<AutopilotRule[]>(`/api/workspaces/${slug}/autopilot`),
+    create: (slug: string, data: Partial<AutopilotRule>) =>
+      apiRequest<AutopilotRule>(`/api/workspaces/${slug}/autopilot`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+    update: (slug: string, id: string, data: Partial<AutopilotRule>) =>
+      apiRequest<AutopilotRule>(`/api/workspaces/${slug}/autopilot/${id}`, {
+        method: 'PATCH', body: JSON.stringify(data),
+      }),
+    delete: (slug: string, id: string) =>
+      apiRequest(`/api/workspaces/${slug}/autopilot/${id}`, { method: 'DELETE' }),
+    run: (slug: string, id: string) =>
+      apiRequest(`/api/workspaces/${slug}/autopilot/${id}/run`, { method: 'POST' }),
+  },
+
+  activity: {
+    list: (slug: string) => apiRequest<AgentRun[]>(`/api/workspaces/${slug}/activity`),
+  },
+
   chat: {
     threads: (slug: string) => apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads`),
     messages: (slug: string, threadId: string) =>
@@ -221,4 +241,34 @@ export interface WorkspaceFile {
   storageKey: string
   url: string
   createdAt: string
+}
+
+export type AutopilotTrigger = 'schedule' | 'task_created' | 'task_status_changed' | 'message_received'
+export type AutopilotAction = 'run_agent' | 'create_task' | 'send_message' | 'call_webhook'
+
+export interface AutopilotRule {
+  id: string
+  workspaceId: string
+  name: string
+  description: string | null
+  triggerType: AutopilotTrigger
+  triggerConfig: Record<string, unknown>
+  actionType: AutopilotAction
+  actionConfig: Record<string, unknown>
+  isActive: boolean
+  lastRunAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgentRun {
+  id: string
+  trigger: string
+  status: string
+  input: string
+  output: string | null
+  tokensUsed: number | null
+  durationMs: number | null
+  createdAt: string
+  completedAt: string | null
 }

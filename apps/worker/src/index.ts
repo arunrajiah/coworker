@@ -44,12 +44,17 @@ autopilotWorker.on('failed', (job, err) =>
   console.error(`[autopilot] Job ${job?.id} failed: ${err.message}`)
 )
 
-// ── Listen for rule sync signals from the API ────────────────────────────────
+// ── Listen for rule sync + manual run signals from the API ───────────────────
 
 const syncSubscriber = redis.duplicate()
-await syncSubscriber.subscribe('autopilot:sync')
-syncSubscriber.on('message', async () => {
-  await syncScheduledRules(db, autopilotQueue)
+await syncSubscriber.subscribe('autopilot:sync', 'autopilot:run')
+syncSubscriber.on('message', async (channel, message) => {
+  if (channel === 'autopilot:sync') {
+    await syncScheduledRules(db, autopilotQueue)
+  } else if (channel === 'autopilot:run') {
+    const data = JSON.parse(message) as AutopilotJobData
+    await autopilotQueue.add('run-rule', data, { attempts: 2 })
+  }
 })
 
 // ── Initial sync on startup ──────────────────────────────────────────────────

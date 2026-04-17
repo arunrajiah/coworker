@@ -90,3 +90,27 @@ autopilotRoutes.delete('/:id', async (c) => {
 
   return c.json({ ok: true })
 })
+
+autopilotRoutes.post('/:id/run', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const { db, redis } = getContainer()
+
+  const rule = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.query.autopilotRules.findFirst({
+      where: and(eq(autopilotRules.id, c.req.param('id')), eq(autopilotRules.workspaceId, workspaceId)),
+    })
+  )
+  if (!rule) return c.json({ error: 'Not found' }, 404)
+
+  await redis.publish(
+    'autopilot:run',
+    JSON.stringify({
+      ruleId: rule.id,
+      workspaceId: rule.workspaceId,
+      actionType: rule.actionType,
+      actionConfig: rule.actionConfig,
+    })
+  )
+
+  return c.json({ ok: true })
+})
