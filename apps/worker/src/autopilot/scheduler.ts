@@ -80,12 +80,10 @@ export interface GitEventPayload {
 // Called when a git event arrives via Redis; fires matching autopilot rules.
 export async function handleGitEvent(
   db: DbClient,
-  redis: Redis,
   autopilotQueue: Queue<AutopilotJobData>,
-  agentQueue: Queue,
   event: GitEventPayload
 ): Promise<void> {
-  const { type, action, workspaceId, connectionId, repo } = event
+  const { type, action, workspaceId, connectionId, repo, payload } = event
 
   const triggerType =
     type === 'issues' && (action === 'opened' || action === 'created' || action === 'open')
@@ -104,14 +102,39 @@ export async function handleGitEvent(
     ),
   })
 
+  if (rules.length === 0) return
+
+  // Extract human-readable context from the raw payload
+  const p = payload as Record<string, unknown>
+  const issueOrPR = (p.issue ?? p.pull_request ?? p.object_attributes ?? p) as Record<string, unknown>
+  const title = (issueOrPR.title as string) ?? '(no title)'
+  const body = (issueOrPR.body ?? issueOrPR.description ?? '') as string
+  const url = (issueOrPR.html_url ?? issueOrPR.web_url ?? '') as string
+  const number = (issueOrPR.number ?? issueOrPR.iid) as number | undefined
+  const author = ((issueOrPR.user as Record<string, unknown>)?.login ?? (issueOrPR.author as Record<string, unknown>)?.username ?? 'unknown') as string
+  const labelList = Array.isArray(issueOrPR.labels)
+    ? (issueOrPR.labels as any[]).map((l) => (typeof l === 'string' ? l : l?.name ?? '')).filter(Boolean).join(', ')
+    : ''
+
+  const eventContext = [
+    `Repo: ${repo}`,
+    number ? `${type === 'pull_request' ? 'PR' : 'Issue'} #${number}: ${title}` : `Title: ${title}`,
+    url ? `URL: ${url}` : '',
+    `Opened by: ${author}`,
+    labelList ? `Labels: ${labelList}` : '',
+    body ? `\nDescription:\n${body.slice(0, 1000)}${body.length > 1000 ? '…' : ''}` : '',
+  ].filter(Boolean).join('\n')
+
   for (const rule of rules) {
     const config = rule.triggerConfig as { connectionId?: string }
-    // If rule is scoped to a specific connection, skip non-matching events
     if (config.connectionId && config.connectionId !== connectionId) continue
 
-    // Enrich the agent prompt with issue context
     const actionConfig = rule.actionConfig as Record<string, unknown>
-    const contextPrompt = `${actionConfig.prompt ?? 'Process this git event.'}\n\nGit event:\n- Repo: ${repo}\n- Type: ${type}\n- Action: ${action ?? 'unknown'}\n- Connection ID: ${connectionId}`
+    const basePrompt = (actionConfig.prompt as string) ?? 'Process this git event and take appropriate action.'
+    const fullPrompt = `${basePrompt}\n\n--- Git Event ---\n${eventContext}`
+
+    // Use a unique thread per event so each issue/PR gets fresh agent context
+    const eventThreadId = `git:${connectionId}:${type}:${number ?? Date.now()}`
 
     await autopilotQueue.add(
       'run-rule',
@@ -119,7 +142,7 @@ export async function handleGitEvent(
         ruleId: rule.id,
         workspaceId,
         actionType: rule.actionType,
-        actionConfig: { ...actionConfig, prompt: contextPrompt },
+        actionConfig: { ...actionConfig, prompt: fullPrompt, threadId: eventThreadId },
       },
       { attempts: 2 }
     )
@@ -153,12 +176,11 @@ export async function executeAutopilotRule(
     })
     if (!owner) return
 
-    // Create a system thread for autopilot messages (persistent per rule)
-    const threadId = `autopilot:${ruleId}`
+    // Use event-scoped thread if provided (git events), otherwise persistent per-rule thread
+    const threadId = (actionConfig as { threadId?: string }).threadId ?? `autopilot:${ruleId}`
 
     // Save the trigger as a system message so the agent has context
     const { messages } = await import('@coworker/db')
-    const { nanoid } = await import('nanoid')
 
     await withWorkspace(db, workspaceId, async (tx) =>
       tx.insert(messages).values({

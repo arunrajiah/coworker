@@ -16,7 +16,7 @@ autopilotRoutes.use('*', workspaceMiddleware)
 const ruleSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
-  triggerType: z.enum(['schedule', 'task_created', 'task_status_changed', 'message_received']),
+  triggerType: z.enum(['schedule', 'task_created', 'task_status_changed', 'message_received', 'git_issue_opened', 'git_pr_opened']),
   triggerConfig: z.record(z.unknown()).default({}),
   actionType: z.enum(['run_agent', 'create_task', 'send_message', 'call_webhook']),
   actionConfig: z.record(z.unknown()).default({}),

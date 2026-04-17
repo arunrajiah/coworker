@@ -331,7 +331,7 @@ export interface ExtractedFileContent {
   chunks: Array<{ content: string; metadata: Record<string, unknown> | null }>
 }
 
-export type AutopilotTrigger = 'schedule' | 'task_created' | 'task_status_changed' | 'message_received'
+export type AutopilotTrigger = 'schedule' | 'task_created' | 'task_status_changed' | 'message_received' | 'git_issue_opened' | 'git_pr_opened'
 export type AutopilotAction = 'run_agent' | 'create_task' | 'send_message' | 'call_webhook'
 
 export interface AutopilotRule {

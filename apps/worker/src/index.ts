@@ -75,7 +75,7 @@ syncSubscriber.on('message', async (channel, message) => {
       type: string; action?: string; connectionId: string
       workspaceId: string; provider: string; repo: string; payload: unknown
     }
-    await handleGitEvent(db, redis, autopilotQueue, agentQueue, gitEvent)
+    await handleGitEvent(db, autopilotQueue, gitEvent)
   }
 })
 

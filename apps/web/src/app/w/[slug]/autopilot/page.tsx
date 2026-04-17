@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import {
   Plus, Moon, Clock, Zap, ChevronDown, Play, Trash2,
   CheckSquare, MessageSquare, Calendar, ToggleLeft, ToggleRight,
-  Loader2, Pencil,
+  Loader2, Pencil, GitBranch, GitPullRequest,
 } from 'lucide-react'
 import { api, type AutopilotRule, type AutopilotTrigger, type AutopilotAction } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -25,6 +25,8 @@ const TRIGGER_LABELS: Record<AutopilotTrigger, string> = {
   task_created: 'Task created',
   task_status_changed: 'Task status changed',
   message_received: 'Message received',
+  git_issue_opened: 'Git issue opened',
+  git_pr_opened: 'Git PR opened',
 }
 
 const ACTION_LABELS: Record<AutopilotAction, string> = {
@@ -39,6 +41,8 @@ const TRIGGER_ICONS: Record<AutopilotTrigger, React.ReactNode> = {
   task_created: <CheckSquare className="h-3.5 w-3.5" />,
   task_status_changed: <Zap className="h-3.5 w-3.5" />,
   message_received: <MessageSquare className="h-3.5 w-3.5" />,
+  git_issue_opened: <GitBranch className="h-3.5 w-3.5" />,
+  git_pr_opened: <GitPullRequest className="h-3.5 w-3.5" />,
 }
 
 interface RuleForm {
@@ -309,6 +313,15 @@ function RuleFormPanel({
             className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <p className="text-xs text-muted-foreground">Standard 5-field cron (minute hour day month weekday)</p>
+        </div>
+      )}
+
+      {(form.triggerType === 'git_issue_opened' || form.triggerType === 'git_pr_opened') && (
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            This rule fires whenever a {form.triggerType === 'git_pr_opened' ? 'pull request' : 'issue'} is opened in any connected git repository. The agent receives the full issue/PR title, description, and metadata as context.
+            {' '}Make sure you have a git repo connected in <strong>Settings → Git Repositories</strong> with a webhook registered.
+          </p>
         </div>
       )}
 
