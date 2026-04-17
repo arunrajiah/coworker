@@ -2,7 +2,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 function getToken() {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('token')
+  try {
+    const stored = localStorage.getItem('coworker-auth')
+    if (stored) return (JSON.parse(stored) as { state?: { token?: string } }).state?.token ?? null
+  } catch {}
+  return null
 }
 
 export async function apiRequest<T>(
@@ -32,10 +36,10 @@ export async function apiRequest<T>(
 export const api = {
   auth: {
     sendMagicLink: (email: string) =>
-      apiRequest('/api/auth/magic-link/send', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      }),
+      apiRequest<{ ok: boolean; token?: string; user?: { id: string; email: string; name: string | null } }>(
+        '/api/auth/magic-link/send',
+        { method: 'POST', body: JSON.stringify({ email }) }
+      ),
     verifyMagicLink: (token: string) =>
       apiRequest<{ token: string; user: { id: string; email: string; name: string | null } }>(
         '/api/auth/magic-link/verify',

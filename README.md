@@ -148,6 +148,14 @@ Ports: web → 3000, api → 3001
 
 ---
 
+## Screenshots
+
+| Login | Board | Dashboard | Autopilot |
+|---|---|---|---|
+| ![Login](docs/screenshots/login.png) | ![Board](docs/screenshots/board.png) | ![Dashboard](docs/screenshots/dashboard.png) | ![Autopilot](docs/screenshots/autopilot.png) |
+
+---
+
 ## Environment variables
 
 | Variable | Required | Description |
@@ -161,7 +169,24 @@ Ports: web → 3000, api → 3001
 | `API_URL` | Yes | API origin (e.g. `http://localhost:3001`) |
 | `SMTP_URL` | No | SMTP connection string — magic links print to logs if unset |
 | `EMAIL_FROM` | No | From address for magic link emails |
-| `STORAGE_PATH` | No | Local file storage path (default: `./uploads`) |
+| `UPLOAD_DIR` | No | Local file storage path (default: `./uploads`) |
+| `LOCAL_AUTH` | No | `true` to skip email verification (self-hosted single-user) |
+| `NEXT_PUBLIC_LOCAL_AUTH` | No | Must match `LOCAL_AUTH` — controls login page copy |
+| `TELEGRAM_BOT_TOKEN` | No | Enables Telegram integration |
+
+---
+
+## Local auth (no email required)
+
+For self-hosted single-user deployments you don't want to deal with email setup. Set `LOCAL_AUTH=true` (and `NEXT_PUBLIC_LOCAL_AUTH=true`) and the login page skips email verification — entering any email address signs you in or creates your account immediately.
+
+```bash
+# .env
+LOCAL_AUTH=true
+NEXT_PUBLIC_LOCAL_AUTH=true
+```
+
+> **Never enable this in a multi-user or public deployment.** It lets anyone create an account without email verification.
 
 ---
 
@@ -172,7 +197,7 @@ Ports: web → 3000, api → 3001
 - [ ] Set `POSTGRES_PASSWORD` to something strong
 - [ ] Set `APP_URL` and `API_URL` to your domain
 - [ ] Set up a reverse proxy (nginx/Caddy) with HTTPS
-- [ ] (Optional) Set `SMTP_URL` for real email — otherwise magic links print to logs
+- [ ] (Optional) Set `SMTP_URL` for real email — or use `LOCAL_AUTH=true` for single-user installs
 
 ---
 

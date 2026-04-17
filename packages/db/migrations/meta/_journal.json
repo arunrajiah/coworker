@@ -29,6 +29,13 @@
       "when": 1745222400000,
       "tag": "0003_tasks_domains",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1745222401000,
+      "tag": "0004_tasks_domains_data",
+      "breakpoints": true
     }
   ]
 }

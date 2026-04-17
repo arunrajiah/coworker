@@ -5,23 +5,32 @@ import { eq, and, gt } from 'drizzle-orm'
 import { users, sessions, magicLinks } from '@coworker/db'
 import { getContainer } from '../container.js'
 import { signToken, generateMagicToken } from '../lib/auth.js'
-import { nanoid } from 'nanoid'
+import { getEnv } from '@coworker/config'
 
 export const authRoutes = new Hono()
 
-// Send magic link
+// Send magic link — or sign in directly when LOCAL_AUTH=true
 authRoutes.post(
   '/magic-link/send',
   zValidator('json', z.object({ email: z.string().email() })),
   async (c) => {
     const { email } = c.req.valid('json')
     const { db, email: emailProvider } = getContainer()
+    const env = getEnv()
 
     // Upsert user
     let user = await db.query.users.findFirst({ where: eq(users.email, email) })
     if (!user) {
-      const [created] = await db.insert(users).values({ email }).returning()
+      const [created] = await db.insert(users).values({ email, emailVerified: env.LOCAL_AUTH }).returning()
       user = created
+    }
+
+    // LOCAL_AUTH: skip email, return a token immediately
+    if (env.LOCAL_AUTH) {
+      const sessionToken = await signToken({ sub: user.id, email: user.email })
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      await db.insert(sessions).values({ userId: user.id, token: sessionToken, expiresAt })
+      return c.json({ ok: true, token: sessionToken, user: { id: user.id, email: user.email, name: user.name } })
     }
 
     const token = generateMagicToken()
@@ -29,7 +38,7 @@ authRoutes.post(
 
     await db.insert(magicLinks).values({ email, token, expiresAt })
 
-    const magicUrl = `${process.env.APP_URL}/auth/verify?token=${token}`
+    const magicUrl = `${env.APP_URL}/auth/verify?token=${token}`
 
     await emailProvider.send({
       to: { email },

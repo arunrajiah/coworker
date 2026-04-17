@@ -5,6 +5,8 @@ import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
 import { useRouter } from 'next/navigation'
 
+const LOCAL_AUTH = process.env.NEXT_PUBLIC_LOCAL_AUTH === 'true'
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -18,7 +20,13 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      await api.auth.sendMagicLink(email)
+      const res = await api.auth.sendMagicLink(email) as { ok: boolean; token?: string; user?: { id: string; email: string; name: string | null } }
+      // LOCAL_AUTH: API returns token + user directly — no email step needed
+      if (res.token && res.user) {
+        setAuth(res.token, { ...res.user, avatarUrl: null })
+        router.replace('/workspaces')
+        return
+      }
       setSent(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -84,7 +92,7 @@ export default function LoginPage() {
               <div>
                 <h2 className="text-2xl font-semibold">Sign in</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  No password. We&apos;ll send you a link.
+                  {LOCAL_AUTH ? 'Local mode — enter any email to continue.' : 'No password. We\'ll send you a link.'}
                 </p>
               </div>
 
@@ -112,7 +120,7 @@ export default function LoginPage() {
                   disabled={loading || !email.trim()}
                   className="w-full rounded-xl bg-foreground text-background py-3 text-sm font-medium hover:bg-foreground/90 disabled:opacity-40 transition-colors"
                 >
-                  {loading ? 'Sending…' : 'Send sign-in link →'}
+                  {loading ? 'Signing in…' : LOCAL_AUTH ? 'Sign in →' : 'Send sign-in link →'}
                 </button>
               </form>
 

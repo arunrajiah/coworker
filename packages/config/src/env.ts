@@ -28,6 +28,13 @@ const envSchema = z.object({
   // Telegram bot (optional — enables Telegram integration)
   TELEGRAM_BOT_TOKEN: z.string().optional(),
 
+  // Local auth — skip email verification for self-hosted single-user deployments.
+  // When true, entering any email on the login page signs you in immediately.
+  LOCAL_AUTH: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
+
   // App
   APP_URL: z.string().url().default('http://localhost:3000'),
   API_URL: z.string().url().default('http://localhost:3001'),
