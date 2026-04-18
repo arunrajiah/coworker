@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useParams, useRouter } from 'next/navigation'
-import { MessageSquare, CheckSquare, Moon, Settings, LogOut, ChevronDown, Kanban, LayoutDashboard } from 'lucide-react'
+import { MessageSquare, CheckSquare, Moon, Settings, LogOut, ChevronDown, Kanban, LayoutDashboard, Sparkles, Sun } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
 import { api } from '@/lib/api'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Workspace } from '@/lib/api'
 import { FOUNDER_TEMPLATES } from '@coworker/core'
 import type { TemplateType } from '@coworker/core'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const TEMPLATE_ICONS: Record<string, string> = {
   saas: '🚀',
@@ -26,6 +27,7 @@ const navItems = [
   { href: 'chat', label: 'Chat', icon: MessageSquare },
   { href: 'tasks', label: 'Tasks', icon: CheckSquare },
   { href: 'autopilot', label: 'Autopilot', icon: Moon },
+  { href: 'skills', label: 'Skills', icon: Sparkles },
   { href: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -38,10 +40,34 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
     api.workspaces.get(slug).then(setWorkspace).catch(() => {})
   }, [slug])
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'))
+  }, [])
+
+  function toggleTheme() {
+    const next = !isDark
+    setIsDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+  }
+
+  const handleCmdK = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault()
+      router.push(`/w/${slug}/chat/new`)
+    }
+  }, [router, slug])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleCmdK)
+    return () => window.removeEventListener('keydown', handleCmdK)
+  }, [handleCmdK])
 
   async function handleSignOut() {
     await api.auth.signOut()
@@ -103,18 +129,29 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
             Switch workspace
           </Link>
 
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors"
-          >
-            <LogOut className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{user?.email ?? 'Sign out'}</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleSignOut}
+              className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{user?.email ?? 'Sign out'}</span>
+            </button>
+            <button
+              onClick={toggleTheme}
+              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-lg text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors shrink-0"
+            >
+              {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <main className="flex-1 overflow-hidden">
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </main>
     </div>
   )
 }

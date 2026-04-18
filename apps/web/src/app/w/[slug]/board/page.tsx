@@ -14,11 +14,13 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Bot, Loader2, ChevronDown, GitBranch } from 'lucide-react'
+import { Plus, Bot, Loader2, ChevronDown, GitBranch, Pencil } from 'lucide-react'
+import { toast } from 'sonner'
 import { api, type Task, type TaskStatus, type TaskDomain, type BoardColumns } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn } from '@/lib/utils'
+import { TaskDetailModal } from '@/components/TaskDetailModal'
 
 const COLUMN_ORDER: (keyof BoardColumns)[] = ['backlog', 'todo', 'in_progress', 'review', 'done']
 
@@ -77,7 +79,9 @@ export default function BoardPage() {
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [agentActivity, setAgentActivity] = useState<ActiveAgentMap>({})
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const socketRef = useRef<WorkspaceSocket | null>(null)
+  const dragFromStatusRef = useRef<{ taskId: string; fromStatus: TaskStatus } | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -119,7 +123,6 @@ export default function BoardPage() {
       } else if (event.type === 'task:updated') {
         const task: Task = event.task
         setColumns((prev) => {
-          // Remove from all columns, then add to correct one
           const next = { ...prev }
           for (const col of COLUMN_ORDER) {
             next[col] = prev[col].filter((t) => t.id !== task.id)
@@ -139,7 +142,6 @@ export default function BoardPage() {
           return next
         })
       } else if (event.type === 'agent:thinking') {
-        // Mark agent as active — tie to all tasks in the current run
         setAgentActivity((prev) => ({ ...prev, [event.agentRunId]: { tools: [] } }))
       } else if (event.type === 'agent:tool_call') {
         setAgentActivity((prev) => ({
@@ -172,7 +174,11 @@ export default function BoardPage() {
     const { active } = event
     for (const col of COLUMN_ORDER) {
       const task = columns[col]?.find((t) => t.id === active.id)
-      if (task) { setActiveTask(task); break }
+      if (task) {
+        setActiveTask(task)
+        dragFromStatusRef.current = { taskId: task.id, fromStatus: task.status }
+        break
+      }
     }
   }
 
@@ -200,17 +206,62 @@ export default function BoardPage() {
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setActiveTask(null)
+    const drag = dragFromStatusRef.current
+    dragFromStatusRef.current = null
+
     if (!over) return
 
     const overIdAsCol = over.id as keyof BoardColumns
     const toCol = COLUMN_ORDER.includes(overIdAsCol) ? overIdAsCol : findTaskColumn(over.id as string)
     if (!toCol) return
+    if (drag && drag.fromStatus === toCol) return
+
+    const taskId = active.id as string
 
     try {
-      await api.tasks.update(slug, active.id as string, { status: toCol })
+      await api.tasks.update(slug, taskId, { status: toCol })
+      if (drag && drag.fromStatus !== toCol) {
+        const fromLabel = COLUMN_CONFIG[drag.fromStatus].label
+        toast.success(`Moved to ${COLUMN_CONFIG[toCol].label}`, {
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              api.tasks.update(slug, taskId, { status: drag.fromStatus })
+                .then(loadBoard)
+                .catch(() => toast.error('Failed to undo'))
+            },
+          },
+          description: `Was in ${fromLabel}`,
+        })
+      }
     } catch {
-      loadBoard() // Re-fetch on error
+      toast.error('Failed to move task')
+      loadBoard()
     }
+  }
+
+  function handleTaskUpdated(updated: Task) {
+    setColumns((prev) => {
+      const next = { ...prev }
+      for (const col of COLUMN_ORDER) {
+        next[col] = prev[col].filter((t) => t.id !== updated.id)
+      }
+      const targetCol = updated.status as keyof BoardColumns
+      if (next[targetCol]) {
+        next[targetCol] = [updated, ...next[targetCol]]
+      }
+      return next
+    })
+  }
+
+  function handleTaskDeleted(taskId: string) {
+    setColumns((prev) => {
+      const next = { ...prev }
+      for (const col of COLUMN_ORDER) {
+        next[col] = prev[col].filter((t) => t.id !== taskId)
+      }
+      return next
+    })
   }
 
   const hasAgentRunning = Object.keys(agentActivity).length > 0
@@ -266,10 +317,16 @@ export default function BoardPage() {
                   addingTo={addingTo}
                   onAddStart={() => setAddingTo(status)}
                   onAddCancel={() => setAddingTo(null)}
-                  onAddSave={async (title, domain) => {
-                    await api.tasks.create(slug, { title, domain, status })
+                  onAddSave={async (title, domain, dueDate) => {
+                    try {
+                      await api.tasks.create(slug, { title, domain, status, dueDate: dueDate || null })
+                      toast.success('Task created')
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : 'Failed to create task')
+                    }
                     setAddingTo(null)
                   }}
+                  onEditTask={setEditingTask}
                 />
               ))}
             </div>
@@ -277,10 +334,20 @@ export default function BoardPage() {
 
           <DragOverlay>
             {activeTask && (
-              <TaskCard task={activeTask} isDragging agentActivity={agentActivity} />
+              <TaskCard task={activeTask} isDragging agentActivity={agentActivity} onEditClick={() => {}} />
             )}
           </DragOverlay>
         </DndContext>
+      )}
+
+      {editingTask && (
+        <TaskDetailModal
+          task={editingTask}
+          slug={slug}
+          onClose={() => setEditingTask(null)}
+          onUpdated={handleTaskUpdated}
+          onDeleted={handleTaskDeleted}
+        />
       )}
     </div>
   )
@@ -296,6 +363,7 @@ function BoardColumn({
   onAddStart,
   onAddCancel,
   onAddSave,
+  onEditTask,
 }: {
   status: TaskStatus
   tasks: Task[]
@@ -303,7 +371,8 @@ function BoardColumn({
   addingTo: TaskStatus | null
   onAddStart: () => void
   onAddCancel: () => void
-  onAddSave: (title: string, domain: TaskDomain) => Promise<void>
+  onAddSave: (title: string, domain: TaskDomain, dueDate?: string) => Promise<void>
+  onEditTask: (task: Task) => void
 }) {
   const config = COLUMN_CONFIG[status]
   const { setNodeRef, isOver } = useSortable({ id: status, data: { type: 'column' } })
@@ -337,7 +406,7 @@ function BoardColumn({
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-2 min-h-[120px]">
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} agentActivity={agentActivity} />
+            <TaskCard key={task.id} task={task} agentActivity={agentActivity} onEditClick={onEditTask} />
           ))}
         </SortableContext>
 
@@ -358,14 +427,15 @@ function TaskCard({
   task,
   isDragging,
   agentActivity,
+  onEditClick,
 }: {
   task: Task
   isDragging?: boolean
   agentActivity: ActiveAgentMap
+  onEditClick: (task: Task) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({ id: task.id })
 
-  // Check if any running agent is working on this task (we watch all tool_calls)
   const activeRuns = Object.entries(agentActivity)
   const agentTools = activeRuns.length > 0 ? activeRuns.flatMap(([, v]) => v.tools) : []
   const isAgentWorking = task.agentOwned && agentTools.some((t) => t.includes('task'))
@@ -383,11 +453,21 @@ function TaskCard({
       {...attributes}
       {...listeners}
       className={cn(
-        'group bg-background rounded-lg border border-border p-3 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-all select-none',
+        'group relative bg-background rounded-lg border border-border p-3 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-all select-none',
         isDragging && 'shadow-xl rotate-1 opacity-95',
         isAgentWorking && 'ring-2 ring-primary/50 border-primary/30'
       )}
     >
+      {/* Edit button — appears on hover, stops drag from triggering */}
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onEditClick(task) }}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 h-6 w-6 rounded flex items-center justify-center bg-background border border-border text-muted-foreground hover:text-foreground shadow-sm transition-all z-10"
+        title="Edit task"
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+
       {/* Agent working indicator */}
       {isAgentWorking && (
         <div className="flex items-center gap-1 mb-2 text-xs text-primary">
@@ -404,7 +484,7 @@ function TaskCard({
         </div>
       )}
 
-      <p className="text-sm font-medium leading-snug line-clamp-2">{task.title}</p>
+      <p className="text-sm font-medium leading-snug line-clamp-2 pr-6">{task.title}</p>
 
       {task.description && (
         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
@@ -460,17 +540,18 @@ function AddTaskInline({
   onSave,
 }: {
   onCancel: () => void
-  onSave: (title: string, domain: TaskDomain) => Promise<void>
+  onSave: (title: string, domain: TaskDomain, dueDate?: string) => Promise<void>
 }) {
   const [title, setTitle] = useState('')
   const [domain, setDomain] = useState<TaskDomain>('general')
+  const [dueDate, setDueDate] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
     setSaving(true)
-    await onSave(title.trim(), domain)
+    await onSave(title.trim(), domain, dueDate || undefined)
     setSaving(false)
   }
 
@@ -494,6 +575,15 @@ function AddTaskInline({
             <option key={d.value} value={d.value}>{d.label}</option>
           ))}
         </select>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          title="Due date (optional)"
+          className="rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring w-28"
+        />
+      </div>
+      <div className="flex items-center gap-2">
         <button
           type="submit"
           disabled={!title.trim() || saving}

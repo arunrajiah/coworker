@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Bot, Kanban, ListTodo, TrendingUp, Zap, Activity, ChevronRight } from 'lucide-react'
+import { Bot, Kanban, ListTodo, TrendingUp, Zap, Activity, ChevronRight, GitBranch, Sparkles, Moon, CheckCircle2, X } from 'lucide-react'
 import { api, type Task, type TaskDomain } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
@@ -40,6 +40,15 @@ export default function WorkspaceDashboard() {
   const [workspaceName, setWorkspaceName] = useState('')
   const [agentRunning, setAgentRunning] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [hasGit, setHasGit] = useState(false)
+  const [hasAutopilot, setHasAutopilot] = useState(false)
+  const [hasSkills, setHasSkills] = useState(false)
+  const [checklistDismissed, setChecklistDismissed] = useState(false)
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem(`checklist-dismissed-${slug}`)
+    if (dismissed) setChecklistDismissed(true)
+  }, [slug])
 
   useEffect(() => {
     api.workspaces.get(slug).then((ws) => {
@@ -50,7 +59,18 @@ export default function WorkspaceDashboard() {
       setTasks(t)
       setLoading(false)
     })
+    api.git.list(slug).then((c) => setHasGit(c.length > 0)).catch(() => {})
+    api.autopilot.list(slug).then((r) => setHasAutopilot(r.length > 0)).catch(() => {})
+    api.skills.list(slug).then((s) => setHasSkills(s.length > 0)).catch(() => {})
   }, [slug])
+
+  function dismissChecklist() {
+    localStorage.setItem(`checklist-dismissed-${slug}`, '1')
+    setChecklistDismissed(true)
+  }
+
+  const hasTasks = tasks.length > 0
+  const checklistDone = hasTasks && hasGit && hasAutopilot && hasSkills
 
   useEffect(() => {
     if (!workspaceId || !token) return
@@ -158,6 +178,51 @@ export default function WorkspaceDashboard() {
           </button>
         </div>
 
+        {/* Getting started checklist */}
+        {!checklistDismissed && !checklistDone && (
+          <div className="rounded-xl border border-border bg-background p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">Get started</p>
+              <button
+                onClick={dismissChecklist}
+                className="text-muted-foreground hover:text-foreground transition-colors rounded p-0.5 hover:bg-accent"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <ChecklistItem
+                done={hasTasks}
+                label="Ask your coworker to create some tasks"
+                href={`/w/${slug}/chat/new`}
+                icon={<Bot className="h-3.5 w-3.5" />}
+                router={router}
+              />
+              <ChecklistItem
+                done={hasGit}
+                label="Connect a Git repository to sync issues"
+                href={`/w/${slug}/settings`}
+                icon={<GitBranch className="h-3.5 w-3.5" />}
+                router={router}
+              />
+              <ChecklistItem
+                done={hasSkills}
+                label="Create a skill to extend your coworker"
+                href={`/w/${slug}/skills`}
+                icon={<Sparkles className="h-3.5 w-3.5" />}
+                router={router}
+              />
+              <ChecklistItem
+                done={hasAutopilot}
+                label="Set up an autopilot rule to automate work"
+                href={`/w/${slug}/autopilot`}
+                icon={<Moon className="h-3.5 w-3.5" />}
+                router={router}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Domain breakdown */}
           <section className="space-y-4">
@@ -256,6 +321,44 @@ function StatusDot({ status }: { status: string }) {
     review: 'bg-purple-400', done: 'bg-green-500', cancelled: 'bg-gray-300',
   }
   return <span className={cn('h-2 w-2 rounded-full shrink-0', colors[status] ?? 'bg-gray-300')} />
+}
+
+function ChecklistItem({
+  done,
+  label,
+  href,
+  icon,
+  router,
+}: {
+  done: boolean
+  label: string
+  href: string
+  icon: React.ReactNode
+  router: ReturnType<typeof import('next/navigation').useRouter>
+}) {
+  return (
+    <button
+      onClick={() => !done && router.push(href)}
+      disabled={done}
+      className={cn(
+        'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-left',
+        done
+          ? 'text-muted-foreground cursor-default'
+          : 'hover:bg-accent cursor-pointer text-foreground'
+      )}
+    >
+      {done ? (
+        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+      ) : (
+        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/40 shrink-0" />
+      )}
+      <span className={cn('flex items-center gap-1.5', done && 'line-through')}>
+        {icon}
+        {label}
+      </span>
+      {!done && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />}
+    </button>
+  )
 }
 
 function StatusBadge({ status }: { status: string }) {

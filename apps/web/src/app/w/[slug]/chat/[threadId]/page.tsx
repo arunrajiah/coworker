@@ -23,11 +23,13 @@ export default function ThreadPage() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [agentThinking, setAgentThinking] = useState(false)
+  const [agentSlowWarning, setAgentSlowWarning] = useState(false)
   const [toolsInProgress, setToolsInProgress] = useState<string[]>([])
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [templateType, setTemplateType] = useState<TemplateType>('general')
   const [attachedFiles, setAttachedFiles] = useState<WorkspaceFile[]>([])
   const [uploading, setUploading] = useState(false)
+  const agentSlowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const socketRef = useRef<WorkspaceSocket | null>(null)
@@ -54,7 +56,9 @@ export default function ThreadPage() {
     const off = socket.on((event) => {
       if (event.type === 'agent:thinking') {
         setAgentThinking(true)
+        setAgentSlowWarning(false)
         setToolsInProgress([])
+        agentSlowTimerRef.current = setTimeout(() => setAgentSlowWarning(true), 20000)
       } else if (event.type === 'agent:tool_call') {
         setToolsInProgress(event.tools)
       } else if (event.type === 'agent:message') {
@@ -64,21 +68,31 @@ export default function ThreadPage() {
             return [...without, event.message]
           })
           setAgentThinking(false)
+          setAgentSlowWarning(false)
           setToolsInProgress([])
+          if (agentSlowTimerRef.current) clearTimeout(agentSlowTimerRef.current)
         }
       } else if (event.type === 'agent:complete') {
         setAgentThinking(false)
+        setAgentSlowWarning(false)
+        if (agentSlowTimerRef.current) clearTimeout(agentSlowTimerRef.current)
       } else if (event.type === 'agent:error') {
         setAgentThinking(false)
+        setAgentSlowWarning(false)
+        if (agentSlowTimerRef.current) clearTimeout(agentSlowTimerRef.current)
         setMessages((prev) => [
           ...prev.filter((m) => !m.id.startsWith('opt-')),
           {
             id: nanoid(),
             workspaceId: workspaceId ?? '',
-            role: 'assistant',
+            role: 'assistant' as const,
             content: 'I ran into a problem. Try again in a moment.',
             threadId,
             agentRunId: null,
+            toolCalls: null,
+            userId: null,
+            externalMsgId: null,
+            metadata: null,
             channel: 'web',
             createdAt: new Date().toISOString(),
           },
@@ -125,10 +139,14 @@ export default function ThreadPage() {
       {
         id: optimisticId,
         workspaceId: workspaceId ?? '',
-        role: 'user',
+        role: 'user' as const,
         content,
         threadId,
         agentRunId: null,
+        toolCalls: null,
+        userId: null,
+        externalMsgId: null,
+        metadata: null,
         channel: 'web',
         createdAt: new Date().toISOString(),
       },
@@ -177,7 +195,34 @@ export default function ThreadPage() {
                 {suggestions.map((s) => (
                   <button
                     key={s}
-                    onClick={() => setInput(s)}
+                    onClick={async () => {
+                      setInput(s)
+                      setSending(true)
+                      const optimisticId = `opt-${s}`
+                      setMessages([{
+                        id: optimisticId,
+                        workspaceId: workspaceId ?? '',
+                        role: 'user',
+                        content: s,
+                        threadId,
+                        agentRunId: null,
+                        toolCalls: null,
+                        userId: null,
+                        externalMsgId: null,
+                        metadata: null,
+                        channel: 'web',
+                        createdAt: new Date().toISOString(),
+                      }])
+                      try {
+                        await api.chat.sendMessage(slug, threadId, s)
+                        setInput('')
+                      } catch {
+                        setMessages([])
+                        setInput(s)
+                      } finally {
+                        setSending(false)
+                      }
+                    }}
                     className="w-full text-left rounded-xl border border-border px-4 py-2.5 text-sm hover:bg-accent hover:border-border/80 transition-colors text-muted-foreground hover:text-foreground"
                   >
                     {s}
@@ -197,24 +242,31 @@ export default function ThreadPage() {
             <div className="h-7 w-7 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 mt-0.5">
               <Bot className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-xs">
-              {toolsInProgress.length > 0 ? (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Wrench className="h-3 w-3 animate-pulse" />
-                  <span className="capitalize">{toolsInProgress[0].replace(/_/g, ' ')}…</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <span className="flex gap-0.5">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-                        style={{ animationDelay: `${i * 150}ms` }}
-                      />
-                    ))}
-                  </span>
-                </div>
+            <div className="space-y-1.5">
+              <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-xs">
+                {toolsInProgress.length > 0 ? (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Wrench className="h-3 w-3 animate-pulse" />
+                    <span className="capitalize">{toolsInProgress[0].replace(/_/g, ' ')}…</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex gap-0.5">
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
+                          style={{ animationDelay: `${i * 150}ms` }}
+                        />
+                      ))}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {agentSlowWarning && (
+                <p className="text-xs text-muted-foreground px-1">
+                  This is taking longer than usual…
+                </p>
               )}
             </div>
           </div>

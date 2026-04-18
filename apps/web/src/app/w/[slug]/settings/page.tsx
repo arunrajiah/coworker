@@ -6,27 +6,136 @@ import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Pap
 import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
+import { cn } from '@/lib/utils'
+
+const SETTINGS_TABS = [
+  { id: 'general', label: 'General' },
+  { id: 'ai', label: 'AI Model' },
+  { id: 'git', label: 'Git' },
+  { id: 'vercel', label: 'Vercel' },
+  { id: 'telegram', label: 'Telegram' },
+  { id: 'files', label: 'Files' },
+] as const
+
+type SettingsTab = (typeof SETTINGS_TABS)[number]['id']
 
 export default function SettingsPage() {
   const params = useParams()
   const slug = params.slug as string
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-10">
-        <div>
-          <h1 className="text-lg font-semibold">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage integrations, skills, and workspace files</p>
-        </div>
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="border-b border-border px-6 py-4 shrink-0">
+        <h1 className="text-base font-semibold">Settings</h1>
+      </div>
 
-        <ModelSection slug={slug} />
-        <GitSection slug={slug} />
-        <VercelSection slug={slug} />
-        <TelegramSection slug={slug} />
-        <FilesSection slug={slug} />
-        <SkillsSection slug={slug} />
+      {/* Tab bar */}
+      <div className="border-b border-border px-6 flex gap-0.5 shrink-0">
+        {SETTINGS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              'px-4 py-2.5 text-sm transition-colors border-b-2 -mb-px',
+              activeTab === tab.id
+                ? 'border-foreground text-foreground font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-6 py-8">
+          {activeTab === 'general' && <GeneralSection slug={slug} />}
+          {activeTab === 'ai' && <ModelSection slug={slug} />}
+          {activeTab === 'git' && <GitSection slug={slug} />}
+          {activeTab === 'vercel' && <VercelSection slug={slug} />}
+          {activeTab === 'telegram' && <TelegramSection slug={slug} />}
+          {activeTab === 'files' && <FilesSection slug={slug} />}
+        </div>
       </div>
     </div>
+  )
+}
+
+// ── General Section ───────────────────────────────────────────────────────────
+
+function GeneralSection({ slug }: { slug: string }) {
+  const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const [name, setName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api.workspaces.get(slug).then((ws) => {
+      setWorkspace(ws)
+      setName(ws.name)
+    })
+  }, [slug])
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim() || name === workspace?.name) return
+    setSaving(true)
+    try {
+      const updated = await api.workspaces.update(slug, { name: name.trim() })
+      setWorkspace(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-medium">Workspace</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Basic workspace settings</p>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-3 max-w-sm">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Workspace name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="My workspace"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={saving || !name.trim() || name === workspace?.name}
+            className="inline-flex items-center gap-2 rounded-md bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Save
+          </button>
+          {saved && (
+            <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Saved
+            </span>
+          )}
+        </div>
+      </form>
+
+      <div className="border-t border-border pt-6 space-y-3">
+        <div>
+          <h3 className="text-sm font-medium text-destructive">Danger zone</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Workspace ID: <code className="font-mono bg-muted px-1 py-0.5 rounded text-xs">{workspace?.id ?? '…'}</code>
+          </p>
+        </div>
+      </div>
+    </section>
   )
 }
 

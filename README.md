@@ -17,7 +17,45 @@ Coworker is an open-source AI coworker for founders. It manages tasks, remembers
 - **Memory that persists** — every conversation is embedded and retrieved via pgvector. Your coworker remembers what you told it last month.
 - **Autopilot** — schedule automations (weekly briefings, Friday wrap-ups, Monday planning) that run whether or not you open the app.
 - **One command to self-host** — Postgres + Redis + 3 services via Docker Compose.
-- **Provider-agnostic** — works with Anthropic Claude or OpenAI. Switch with a single env var.
+- **Provider-agnostic** — works with Anthropic Claude, OpenAI, Google, Groq, Mistral, or local Ollama. Switch per-workspace, no redeploy needed.
+
+---
+
+## Features at a glance
+
+### Task management
+- **Kanban board** with drag-and-drop between columns (Backlog → Todo → In Progress → Review → Done). Drag shows an **Undo** toast so you can revert in one click.
+- **Task detail modal** — click any card or list row to edit title, description, status, priority, domain, and due date inline. Two-step delete confirmation.
+- **List view** with status cycling (click the icon to advance) and real-time search by title, description, or domain.
+- **Due dates** on task creation directly from the board and list.
+
+### AI chat
+- **Persistent threads** — every conversation is remembered. Pick up where you left off.
+- **Starter prompts** — template-aware suggestions on empty threads; click one to send immediately.
+- **File attachments** — attach PDFs, images, and text files. The agent reads them in context.
+- **Real-time status** — tool-in-progress indicator shows exactly what the agent is doing. "This is taking longer than usual…" appears after 20 seconds.
+
+### Skills
+- **Custom skills** extend your coworker with specific instructions, personas, or output formats.
+- Trigger by phrase (e.g. `/standup`) or keep always-active.
+- Manageable from the dedicated **Skills** page in the main nav.
+
+### Autopilot
+- **Scheduled rules** — run the agent on a cron schedule (daily briefings, weekly reports).
+- **Event triggers** — fire on `task_created`, `task_status_changed`, `git_issue_opened`, and more.
+
+### Integrations
+- **Git** — GitHub, GitLab, Bitbucket issue sync + webhook triggers. Issues become kanban tasks automatically.
+- **Vercel** — monitor deployments and trigger deploys from the agent or autopilot.
+- **Telegram** — chat with your coworker from any device.
+- All managed from **Settings** (tabbed: General · AI Model · Git · Vercel · Telegram · Files).
+
+### UX
+- **Dark mode** — Sun/Moon toggle in the sidebar, persisted to `localStorage`, no flash on load.
+- **⌘K** — opens a new chat from anywhere in the app.
+- **Toast notifications** — success and error feedback on every mutation.
+- **Getting-started checklist** — one-time widget on the dashboard guides new users through first setup steps.
+- **Error boundaries** — a component crash shows a "Try again" UI instead of a blank screen.
 
 ---
 
@@ -209,6 +247,17 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 
 ---
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `⌘K` / `Ctrl+K` | Open a new chat thread from anywhere |
+| `Enter` | Send message in chat |
+| `Shift+Enter` | New line in chat input |
+| `Escape` | Close modals and inline forms |
+
+---
+
 ## Telegram integration
 
 Connect your coworker to a Telegram bot so you can message it from anywhere.
@@ -217,7 +266,7 @@ Connect your coworker to a Telegram bot so you can message it from anywhere.
 1. Create a bot with [@BotFather](https://t.me/BotFather) on Telegram — copy the token
 2. Set `TELEGRAM_BOT_TOKEN` in your `.env`
 3. Restart the worker
-4. In your workspace Settings → Telegram, click **Connect Telegram** to get a code
+4. In your workspace **Settings → Telegram**, click **Connect Telegram** to get a code
 5. Send `/connect <code>` to your bot — done
 
 Messages you send to the bot go through the same agent loop as the web app. Responses come back to Telegram automatically.
@@ -234,11 +283,18 @@ Upload PDFs, images, and text files to your workspace from **Settings → Files*
 
 - [x] Telegram integration
 - [x] File uploads
-- [ ] WhatsApp integration
+- [x] Git integrations (GitHub, GitLab, Bitbucket)
+- [x] Vercel deployment integration
+- [x] Multi-provider LLM support (Anthropic, OpenAI, Google, Groq, Mistral, Ollama)
+- [x] Task detail modal with inline editing
+- [x] Dark mode
+- [x] Skills management (dedicated page, trigger phrases)
+- [x] Settings tab navigation + workspace rename
+- [ ] WhatsApp / Slack integration
 - [ ] PDF text extraction + image vision
 - [ ] More founder templates (Creator, Real estate)
-- [ ] Webhook triggers for autopilot
 - [ ] Public skills marketplace
+- [ ] Team / multi-user workspaces
 - [ ] Mobile app
 
 ---
