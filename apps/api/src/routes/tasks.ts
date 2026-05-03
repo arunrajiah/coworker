@@ -32,11 +32,14 @@ const taskSchema = z.object({
   agentNotes: z.string().optional().nullable(),
 })
 
-// List tasks — supports ?status=&domain=&priority=
+// List tasks — supports ?status=&domain=&priority=&limit=&offset=
 taskRoutes.get('/', async (c) => {
   const workspaceId = c.get('workspaceId')
   const { db } = getContainer()
-  const { status, domain, priority } = c.req.query()
+  const { status, domain, priority, limit: limitStr, offset: offsetStr } = c.req.query()
+
+  const limit = Math.min(Math.max(parseInt(limitStr ?? '25', 10) || 25, 1), 100)
+  const offset = Math.max(parseInt(offsetStr ?? '0', 10) || 0, 0)
 
   const result = await withWorkspace(db, workspaceId, async (tx) => {
     const conditions = [eq(tasks.workspaceId, workspaceId)]
@@ -47,10 +50,12 @@ taskRoutes.get('/', async (c) => {
     return tx.query.tasks.findMany({
       where: and(...conditions),
       orderBy: [asc(tasks.status), desc(tasks.priority), desc(tasks.createdAt)],
+      limit,
+      offset,
     })
   })
 
-  return c.json(result)
+  return c.json({ tasks: result, hasMore: result.length === limit, offset })
 })
 
 // Board view — tasks grouped by status for kanban

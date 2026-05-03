@@ -41,9 +41,15 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [isDark, setIsDark] = useState(false)
+  const [activeTaskCount, setActiveTaskCount] = useState<number | null>(null)
 
   useEffect(() => {
     api.workspaces.get(slug).then(setWorkspace).catch(() => {})
+    // Fetch active (non-done, non-cancelled) task count for the badge
+    api.tasks.list(slug, { limit: 100, offset: 0 }).then(({ tasks }) => {
+      const active = tasks.filter((t) => !['done', 'cancelled'].includes(t.status))
+      setActiveTaskCount(active.length)
+    }).catch(() => {})
   }, [slug])
 
   useEffect(() => {
@@ -113,7 +119,12 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {label}
+                <span className="flex-1">{label}</span>
+                {label === 'Tasks' && activeTaskCount !== null && activeTaskCount > 0 && (
+                  <span className="ml-auto text-[10px] font-medium leading-none px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                    {activeTaskCount > 99 ? '99+' : activeTaskCount}
+                  </span>
+                )}
               </Link>
             )
           })}

@@ -55,7 +55,7 @@ export default function WorkspaceDashboard() {
       setWorkspaceId(ws.id)
       setWorkspaceName(ws.name)
     })
-    api.tasks.list(slug).then((t) => {
+    api.tasks.list(slug, { limit: 25 }).then(({ tasks: t }) => {
       setTasks(t)
       setLoading(false)
     })

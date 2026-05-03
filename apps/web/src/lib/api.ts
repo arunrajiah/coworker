@@ -62,9 +62,9 @@ export const api = {
   },
 
   tasks: {
-    list: (slug: string, params?: { status?: string; domain?: string }) => {
+    list: (slug: string, params?: { status?: string; domain?: string; limit?: number; offset?: number }) => {
       const qs = params ? `?${new URLSearchParams(params as any)}` : ''
-      return apiRequest<Task[]>(`/api/workspaces/${slug}/tasks${qs}`)
+      return apiRequest<{ tasks: Task[]; hasMore: boolean; offset: number }>(`/api/workspaces/${slug}/tasks${qs}`)
     },
     board: (slug: string, domain?: string) => {
       const qs = domain && domain !== 'all' ? `?domain=${domain}` : ''
@@ -232,7 +232,10 @@ export const api = {
   },
 
   chat: {
-    threads: (slug: string) => apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads`),
+    threads: (slug: string) =>
+      apiRequest<{ threadId: string; title: string; lastMessage: Message; hasAgentActivity: boolean }[]>(
+        `/api/workspaces/${slug}/chat/threads`
+      ),
     messages: (slug: string, threadId: string) =>
       apiRequest<Message[]>(`/api/workspaces/${slug}/chat/threads/${threadId}/messages`),
     sendMessage: (slug: string, threadId: string, content: string, fileIds?: string[]) =>

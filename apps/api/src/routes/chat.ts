@@ -24,12 +24,11 @@ function getAgentQueue() {
   return agentQueue
 }
 
-// List threads
+// List threads — returns structured thread summaries with title derived from first user message
 chatRoutes.get('/threads', async (c) => {
   const workspaceId = c.get('workspaceId')
   const { db } = getContainer()
 
-  // Get distinct thread IDs with latest message
   const result = await withWorkspace(db, workspaceId, async (tx) =>
     tx.query.messages.findMany({
       where: eq(messages.workspaceId, workspaceId),
@@ -37,13 +36,37 @@ chatRoutes.get('/threads', async (c) => {
     })
   )
 
-  // Group by threadId
-  const threads = new Map<string, (typeof result)[0]>()
+  // Build thread map: latest message + first user message per thread
+  const latestByThread = new Map<string, (typeof result)[0]>()
+  const firstUserByThread = new Map<string, (typeof result)[0]>()
+
   for (const msg of result) {
-    if (!threads.has(msg.threadId)) threads.set(msg.threadId, msg)
+    if (!latestByThread.has(msg.threadId)) {
+      latestByThread.set(msg.threadId, msg)
+    }
   }
 
-  return c.json(Array.from(threads.values()))
+  // Second pass in chronological order to find first user message
+  for (let i = result.length - 1; i >= 0; i--) {
+    const msg = result[i]
+    if (msg.role === 'user') {
+      firstUserByThread.set(msg.threadId, msg)
+    }
+  }
+
+  const threads = Array.from(latestByThread.entries()).map(([threadId, latest]) => {
+    const firstUser = firstUserByThread.get(threadId)
+    const rawTitle = firstUser?.content ?? latest.content ?? ''
+    const title = rawTitle.length > 60 ? rawTitle.slice(0, 60).trimEnd() + '…' : rawTitle
+    return {
+      threadId,
+      title,
+      lastMessage: latest,
+      hasAgentActivity: latest.role === 'assistant',
+    }
+  })
+
+  return c.json(threads)
 })
 
 // Get messages in thread

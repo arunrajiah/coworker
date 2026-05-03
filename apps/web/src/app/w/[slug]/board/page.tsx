@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   DndContext,
   DragOverlay,
@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 import { api, type Task, type TaskStatus, type TaskDomain, type BoardColumns } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
-import { cn } from '@/lib/utils'
+import { cn, dueDateColor } from '@/lib/utils'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
 
 const COLUMN_ORDER: (keyof BoardColumns)[] = ['backlog', 'todo', 'in_progress', 'review', 'done']
@@ -71,11 +71,13 @@ export default function BoardPage() {
   const params = useParams()
   const slug = params.slug as string
   const token = useAuthStore((s) => s.token)
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [columns, setColumns] = useState<BoardColumns>({ backlog: [], todo: [], in_progress: [], review: [], done: [] })
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeDomain, setActiveDomain] = useState('all')
+  const [activeDomain, setActiveDomain] = useState(() => searchParams.get('domain') ?? 'all')
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [agentActivity, setAgentActivity] = useState<ActiveAgentMap>({})
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
@@ -284,7 +286,14 @@ export default function BoardPage() {
         <div className="relative">
           <select
             value={activeDomain}
-            onChange={(e) => setActiveDomain(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value
+              setActiveDomain(val)
+              const sp = new URLSearchParams(searchParams.toString())
+              if (val === 'all') sp.delete('domain')
+              else sp.set('domain', val)
+              router.replace(`/w/${slug}/board${sp.size ? `?${sp}` : ''}`, { scroll: false })
+            }}
             className="appearance-none rounded-lg border border-input bg-background pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
           >
             {ALL_DOMAINS.map((d) => (
@@ -410,6 +419,19 @@ function BoardColumn({
           ))}
         </SortableContext>
 
+        {tasks.length === 0 && addingTo !== status && (
+          <button
+            onClick={onAddStart}
+            className={cn(
+              'w-full rounded-lg border-2 border-dashed py-4 text-xs text-muted-foreground',
+              'hover:border-primary/30 hover:text-foreground hover:bg-background/40 transition-colors',
+              isOver && 'border-primary/40 bg-background/40 text-foreground'
+            )}
+          >
+            {isOver ? 'Drop here' : '+ Add a task'}
+          </button>
+        )}
+
         {addingTo === status && (
           <AddTaskInline
             onCancel={onAddCancel}
@@ -506,7 +528,7 @@ function TaskCard({
 
           {/* Due date */}
           {task.dueDate && (
-            <span className="text-xs text-muted-foreground">{formatDate(task.dueDate)}</span>
+            <span className={cn('text-xs font-medium', dueDateColor(task.dueDate))}>{formatDate(task.dueDate)}</span>
           )}
         </div>
 

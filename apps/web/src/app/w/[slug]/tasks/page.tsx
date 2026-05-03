@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Circle, ArrowUpCircle, CheckCircle2, XCircle, Bot, Clock, Search } from 'lucide-react'
+import { Plus, Circle, ArrowUpCircle, CheckCircle2, XCircle, Bot, Clock, Search, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, type Task, type TaskStatus } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import { cn, dueDateColor } from '@/lib/utils'
 import { TaskDetailModal } from '@/components/TaskDetailModal'
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; icon: typeof Circle; color: string }> = {
@@ -33,12 +33,17 @@ const PRIORITY_COLORS = {
   urgent: 'bg-red-100 text-red-700',
 }
 
+const PAGE_SIZE = 25
+
 export default function TasksPage() {
   const params = useParams()
   const slug = params.slug as string
 
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [offset, setOffset] = useState(0)
   const [filter, setFilter] = useState<string>('active')
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
@@ -48,18 +53,38 @@ export default function TasksPage() {
 
   useEffect(() => {
     setLoading(true)
+    setOffset(0)
     const statusParam = filter === 'active' ? undefined : filter === 'all' ? undefined : filter
     api.tasks
-      .list(slug, statusParam ? { status: statusParam } : {})
-      .then((t) => {
-        if (filter === 'active') {
-          setTasks(t.filter((task) => !['done', 'cancelled'].includes(task.status)))
-        } else {
-          setTasks(t)
-        }
+      .list(slug, { ...(statusParam ? { status: statusParam } : {}), limit: PAGE_SIZE, offset: 0 })
+      .then(({ tasks: t, hasMore: more }) => {
+        const filtered = filter === 'active' ? t.filter((task) => !['done', 'cancelled'].includes(task.status)) : t
+        setTasks(filtered)
+        setHasMore(more)
       })
       .finally(() => setLoading(false))
   }, [slug, filter])
+
+  async function handleLoadMore() {
+    setLoadingMore(true)
+    const nextOffset = offset + PAGE_SIZE
+    const statusParam = filter === 'active' ? undefined : filter === 'all' ? undefined : filter
+    try {
+      const { tasks: t, hasMore: more } = await api.tasks.list(slug, {
+        ...(statusParam ? { status: statusParam } : {}),
+        limit: PAGE_SIZE,
+        offset: nextOffset,
+      })
+      const filtered = filter === 'active' ? t.filter((task) => !['done', 'cancelled'].includes(task.status)) : t
+      setTasks((prev) => [...prev, ...filtered])
+      setHasMore(more)
+      setOffset(nextOffset)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load more tasks')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const filteredTasks = useMemo(() => {
     if (!search.trim()) return tasks
@@ -186,51 +211,73 @@ export default function TasksPage() {
             </p>
           </div>
         ) : (
-          filteredTasks.map((task) => {
-            const cfg = STATUS_CONFIG[task.status]
-            const StatusIcon = cfg.icon
-            return (
-              <div
-                key={task.id}
-                className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-accent/30 transition-colors group cursor-pointer"
-                onClick={() => setEditingTask(task)}
-              >
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, STATUS_CYCLE[task.status]) }}
-                  className={cn('mt-0.5 shrink-0', cfg.color)}
+          <>
+            {filteredTasks.map((task) => {
+              const cfg = STATUS_CONFIG[task.status]
+              const StatusIcon = cfg.icon
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-accent/30 transition-colors group cursor-pointer"
+                  onClick={() => setEditingTask(task)}
                 >
-                  <StatusIcon className="h-4 w-4" />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={cn('text-sm', task.status === 'done' && 'line-through text-muted-foreground')}>
-                    {task.title}
-                  </p>
-                  {task.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={cn('text-xs px-1.5 py-0.5 rounded', PRIORITY_COLORS[task.priority])}>
-                      {task.priority}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{cfg.label}</span>
-                    {task.agentOwned && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Bot className="h-3 w-3" /> agent
-                      </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, STATUS_CYCLE[task.status]) }}
+                    className={cn('mt-0.5 shrink-0', cfg.color)}
+                  >
+                    <StatusIcon className="h-4 w-4" />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-sm', task.status === 'done' && 'line-through text-muted-foreground')}>
+                      {task.title}
+                    </p>
+                    {task.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
                     )}
-                    {task.labels.map((l) => (
-                      <span key={l} className="text-xs bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded">
-                        {l}
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded', PRIORITY_COLORS[task.priority])}>
+                        {task.priority}
                       </span>
-                    ))}
+                      <span className="text-xs text-muted-foreground">{cfg.label}</span>
+                      {task.agentOwned && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Bot className="h-3 w-3" /> agent
+                        </span>
+                      )}
+                      {task.labels.map((l) => (
+                        <span key={l} className="text-xs bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded">
+                          {l}
+                        </span>
+                      ))}
+                    </div>
                   </div>
+                  {task.dueDate && (
+                    <span className={cn('text-xs font-medium shrink-0', dueDateColor(task.dueDate))}>
+                      {task.dueDate.split('T')[0]}
+                    </span>
+                  )}
                 </div>
-                {task.dueDate && (
-                  <span className="text-xs text-muted-foreground shrink-0">{task.dueDate.split('T')[0]}</span>
-                )}
+              )
+            })}
+            {hasMore && !search.trim() && (
+              <div className="pt-2 pb-4 flex justify-center">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Loading…
+                    </>
+                  ) : (
+                    `Load more`
+                  )}
+                </button>
               </div>
-            )
-          })
+            )}
+          </>
         )}
       </div>
 

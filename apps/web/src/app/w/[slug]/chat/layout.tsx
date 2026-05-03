@@ -11,6 +11,7 @@ import { nanoid } from 'nanoid'
 
 interface Thread {
   threadId: string
+  title: string
   lastMessage: Message
   hasAgentActivity: boolean
 }
@@ -30,18 +31,8 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
   }, [slug])
 
   const loadThreads = useCallback(async () => {
-    const msgs = await api.chat.threads(slug).catch(() => [] as Message[])
-    const map = new Map<string, Thread>()
-    for (const msg of msgs) {
-      if (!map.has(msg.threadId)) {
-        map.set(msg.threadId, {
-          threadId: msg.threadId,
-          lastMessage: msg,
-          hasAgentActivity: msg.role === 'assistant',
-        })
-      }
-    }
-    setThreads(Array.from(map.values()))
+    const data = await api.chat.threads(slug).catch(() => [] as Thread[])
+    setThreads(data)
   }, [slug])
 
   useEffect(() => {
@@ -115,8 +106,8 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                     {relativeTime(thread.lastMessage.createdAt)}
                   </span>
                 </div>
-                <p className="text-xs leading-snug text-foreground line-clamp-2">
-                  {thread.lastMessage.content}
+                <p className="text-xs leading-snug text-foreground line-clamp-2 font-medium">
+                  {isAutopilot ? thread.threadId.replace('autopilot:', 'Autopilot: ') : thread.title}
                 </p>
               </button>
             )
