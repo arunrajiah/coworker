@@ -155,6 +155,14 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
         {/* User / switch workspace */}
         <div className="p-2 border-t border-border space-y-0.5">
+          {workspace?.llmModel && (
+            <div className="px-3 py-1.5 flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">
+                {workspace.llmModel.split('/').pop()?.replace(/-\d{8}$/, '') ?? workspace.llmModel}
+              </span>
+            </div>
+          )}
           <Link
             href="/workspaces"
             className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors"

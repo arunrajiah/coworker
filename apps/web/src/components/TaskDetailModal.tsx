@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Trash2, Loader2, Bot, GitBranch, Calendar } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { X, Trash2, Loader2, Bot, GitBranch, Calendar, Tag, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, type Task, type TaskStatus, type TaskPriority, type TaskDomain } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -50,9 +50,12 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
   const [priority, setPriority] = useState<TaskPriority>(task.priority)
   const [domain, setDomain] = useState<TaskDomain>(task.domain)
   const [dueDate, setDueDate] = useState(task.dueDate ? task.dueDate.split('T')[0] : '')
+  const [labels, setLabels] = useState<string[]>(task.labels ?? [])
+  const [labelInput, setLabelInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const labelInputRef = useRef<HTMLInputElement>(null)
 
   const isDirty =
     title !== task.title ||
@@ -60,7 +63,20 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
     status !== task.status ||
     priority !== task.priority ||
     domain !== task.domain ||
-    dueDate !== (task.dueDate ? task.dueDate.split('T')[0] : '')
+    dueDate !== (task.dueDate ? task.dueDate.split('T')[0] : '') ||
+    JSON.stringify(labels.sort()) !== JSON.stringify([...(task.labels ?? [])].sort())
+
+  function addLabel() {
+    const l = labelInput.trim().toLowerCase().replace(/\s+/g, '-')
+    if (!l || labels.includes(l)) { setLabelInput(''); return }
+    setLabels((prev) => [...prev, l])
+    setLabelInput('')
+    labelInputRef.current?.focus()
+  }
+
+  function removeLabel(l: string) {
+    setLabels((prev) => prev.filter((x) => x !== l))
+  }
 
   async function handleSave() {
     if (!title.trim()) return
@@ -73,6 +89,7 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
         priority,
         domain,
         dueDate: dueDate || null,
+        labels,
       } as Partial<Task>)
       onUpdated(updated)
       toast.success('Task saved')
@@ -182,13 +199,47 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
           </div>
 
           {/* Labels */}
-          {task.labels.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {task.labels.map((l) => (
-                <span key={l} className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">{l}</span>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <Tag className="h-3 w-3" />
+              Labels
+            </label>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {labels.map((l) => (
+                <span
+                  key={l}
+                  className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full group/label"
+                >
+                  {l}
+                  <button
+                    type="button"
+                    onClick={() => removeLabel(l)}
+                    className="opacity-60 group-hover/label:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
               ))}
+              <div className="flex items-center gap-1">
+                <input
+                  ref={labelInputRef}
+                  value={labelInput}
+                  onChange={(e) => setLabelInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addLabel() }
+                    if (e.key === 'Escape') setLabelInput('')
+                  }}
+                  placeholder="Add label…"
+                  className="text-xs border border-dashed border-border rounded-full px-2 py-0.5 bg-transparent focus:outline-none focus:border-primary w-24 placeholder:text-muted-foreground/60"
+                />
+                {labelInput && (
+                  <button type="button" onClick={addLabel} className="text-muted-foreground hover:text-foreground">
+                    <Plus className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+          </div>
 
           {/* Agent notes */}
           {task.agentNotes && (

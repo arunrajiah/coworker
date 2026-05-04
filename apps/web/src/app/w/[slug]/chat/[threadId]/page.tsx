@@ -234,9 +234,40 @@ export default function ThreadPage() {
           </div>
         )}
 
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+        {messages.map((msg, i) => {
+          const prevMsg = messages[i - 1]
+          const msgDate = new Date(msg.createdAt)
+          const prevDate = prevMsg ? new Date(prevMsg.createdAt) : null
+          const showDateSep =
+            !prevDate ||
+            msgDate.getFullYear() !== prevDate.getFullYear() ||
+            msgDate.getMonth() !== prevDate.getMonth() ||
+            msgDate.getDate() !== prevDate.getDate()
+
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const yesterday = new Date(today)
+          yesterday.setDate(yesterday.getDate() - 1)
+          msgDate.setHours(0, 0, 0, 0)
+
+          let dateLabel: string
+          if (msgDate.getTime() === today.getTime()) dateLabel = 'Today'
+          else if (msgDate.getTime() === yesterday.getTime()) dateLabel = 'Yesterday'
+          else dateLabel = new Date(msg.createdAt).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+
+          return (
+            <div key={msg.id}>
+              {showDateSep && (
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">{dateLabel}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
+              <MessageBubble message={msg} />
+            </div>
+          )
+        })}
 
         {agentThinking && (
           <div className="flex gap-3">
