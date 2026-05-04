@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
 import { api } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
-import type { Workspace, Task } from '@/lib/api'
+import type { Workspace } from '@/lib/api'
 import { FOUNDER_TEMPLATES } from '@coworker/core'
 import type { TemplateType } from '@coworker/core'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -42,15 +42,13 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [isDark, setIsDark] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [activeTaskCount, setActiveTaskCount] = useState<number | null>(null)
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const token = useAuthStore((s) => s.token)
 
   const refreshTaskCount = useCallback(() => {
-    api.tasks.list(slug, { limit: 100, offset: 0 }).then(({ tasks }) => {
-      const active = tasks.filter((t) => !['done', 'cancelled'].includes(t.status))
-      setActiveTaskCount(active.length)
-    }).catch(() => {})
+    api.tasks.stats(slug).then((s) => setActiveTaskCount(s.active)).catch(() => {})
   }, [slug])
 
   useEffect(() => {
@@ -65,18 +63,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     socket.connect()
     const off = socket.on((event) => {
       if (event.type === 'task:created' || event.type === 'task:updated' || event.type === 'task:deleted') {
-        // Optimistic update for task:created / task:updated without refetch
-        setActiveTaskCount((prev) => {
-          if (prev === null) return prev
-          if (event.type === 'task:created') {
-            const t = event.task as Task
-            return ['done', 'cancelled'].includes(t.status) ? prev : prev + 1
-          }
-          if (event.type === 'task:deleted') return Math.max(0, prev - 1)
-          return prev
-        })
-        // For updates (status change), do a lightweight refetch
-        if (event.type === 'task:updated') refreshTaskCount()
+        refreshTaskCount()
       }
     })
     return () => { off(); socket.disconnect() }
@@ -94,9 +81,15 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   }
 
   const handleCmdK = useCallback((e: KeyboardEvent) => {
+    const target = e.target as HTMLElement
+    const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
       router.push(`/w/${slug}/chat/new`)
+    } else if (e.key === '?' && !isTyping) {
+      setShowShortcuts((s) => !s)
+    } else if (e.key === 'Escape') {
+      setShowShortcuts(false)
     }
   }, [router, slug])
 
@@ -193,6 +186,49 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       <main className="flex-1 overflow-hidden">
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
+
+      {/* Keyboard shortcuts overlay */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowShortcuts(false)}
+        >
+          <div
+            className="bg-background rounded-2xl border border-border shadow-xl p-6 w-full max-w-sm space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Keyboard shortcuts</h2>
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span className="text-xs border border-border rounded px-1.5 py-0.5">Esc</span>
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {[
+                { keys: ['⌘', 'K'], desc: 'New chat thread' },
+                { keys: ['Enter'], desc: 'Send message' },
+                { keys: ['Shift', 'Enter'], desc: 'New line in chat' },
+                { keys: ['Esc'], desc: 'Close modal / cancel' },
+                { keys: ['?'], desc: 'Show this overlay' },
+              ].map(({ keys, desc }) => (
+                <div key={desc} className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{desc}</span>
+                  <div className="flex items-center gap-1">
+                    {keys.map((k) => (
+                      <kbd key={k} className="text-xs border border-border rounded px-1.5 py-0.5 font-mono bg-muted">
+                        {k}
+                      </kbd>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

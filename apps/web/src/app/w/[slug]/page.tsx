@@ -36,6 +36,7 @@ export default function WorkspaceDashboard() {
   const token = useAuthStore((s) => s.token)
 
   const [tasks, setTasks] = useState<Task[]>([])
+  const [taskStats, setTaskStats] = useState<{ total: number; active: number; overdue: number } | null>(null)
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = useState('')
   const [agentRunning, setAgentRunning] = useState(false)
@@ -59,6 +60,7 @@ export default function WorkspaceDashboard() {
       setTasks(t)
       setLoading(false)
     })
+    api.tasks.stats(slug).then(setTaskStats).catch(() => {})
     api.git.list(slug).then((c) => setHasGit(c.length > 0)).catch(() => {})
     api.autopilot.list(slug).then((r) => setHasAutopilot(r.length > 0)).catch(() => {})
     api.skills.list(slug).then((s) => setHasSkills(s.length > 0)).catch(() => {})
@@ -142,10 +144,15 @@ export default function WorkspaceDashboard() {
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard icon={<ListTodo className="h-4 w-4" />} label="Active tasks" value={activeTasks.length} color="text-blue-600" />
+          <KpiCard icon={<ListTodo className="h-4 w-4" />} label="Active tasks" value={taskStats?.active ?? activeTasks.length} color="text-blue-600" />
           <KpiCard icon={<Activity className="h-4 w-4" />} label="In progress" value={inProgressTasks.length} color="text-yellow-600" />
           <KpiCard icon={<TrendingUp className="h-4 w-4" />} label="Completed" value={doneTasks.length} color="text-green-600" />
-          <KpiCard icon={<Zap className="h-4 w-4" />} label="AI-owned tasks" value={agentTasks.length} color="text-purple-600" />
+          <KpiCard
+            icon={<Zap className="h-4 w-4" />}
+            label="Overdue"
+            value={taskStats?.overdue ?? 0}
+            color={taskStats && taskStats.overdue > 0 ? 'text-red-500' : 'text-muted-foreground'}
+          />
         </div>
 
         {/* Quick actions */}

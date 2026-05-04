@@ -82,6 +82,10 @@ export const api = {
       }),
     delete: (slug: string, id: string) =>
       apiRequest(`/api/workspaces/${slug}/tasks/${id}`, { method: 'DELETE' }),
+    stats: (slug: string) =>
+      apiRequest<{ total: number; active: number; overdue: number; byStatus: Record<string, number>; byPriority: Record<string, number> }>(
+        `/api/workspaces/${slug}/tasks/stats`
+      ),
   },
 
   skills: {

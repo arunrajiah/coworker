@@ -61,6 +61,7 @@ function TasksPageInner() {
     const p = searchParams.get('filter')
     return (VALID_FILTERS.includes(p as FilterType) ? p : 'active') as FilterType
   })
+  const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -103,15 +104,19 @@ function TasksPageInner() {
   }
 
   const filteredTasks = useMemo(() => {
-    if (!search.trim()) return tasks
+    let result = tasks
+    if (priorityFilter !== 'all') {
+      result = result.filter((t) => t.priority === priorityFilter)
+    }
+    if (!search.trim()) return result
     const q = search.toLowerCase()
-    return tasks.filter(
+    return result.filter(
       (t) =>
         t.title.toLowerCase().includes(q) ||
         (t.description?.toLowerCase().includes(q) ?? false) ||
         t.domain.toLowerCase().includes(q)
     )
-  }, [tasks, search])
+  }, [tasks, search, priorityFilter])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -172,7 +177,7 @@ function TasksPageInner() {
       </div>
 
       {/* Filters */}
-      <div className="border-b border-border px-6 py-2 flex gap-1">
+      <div className="border-b border-border px-6 py-2 flex items-center gap-1 flex-wrap">
         {VALID_FILTERS.map((s) => (
           <button
             key={s}
@@ -193,6 +198,29 @@ function TasksPageInner() {
             {s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
+        <span className="mx-1 text-border">|</span>
+        {(['all', 'urgent', 'high', 'medium', 'low'] as const).map((p) => {
+          const colors: Record<string, string> = {
+            urgent: 'text-red-600 bg-red-50 dark:bg-red-900/20',
+            high:   'text-orange-600 bg-orange-50 dark:bg-orange-900/20',
+            medium: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20',
+            low:    'text-slate-600 bg-slate-100 dark:bg-slate-800',
+          }
+          return (
+            <button
+              key={p}
+              onClick={() => setPriorityFilter(p)}
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-xs transition-colors',
+                priorityFilter === p
+                  ? p === 'all' ? 'bg-primary/10 text-primary font-medium' : cn(colors[p], 'font-medium ring-1 ring-current/20')
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {p === 'all' ? 'Any priority' : p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          )
+        })}
       </div>
 
       {/* Task list */}

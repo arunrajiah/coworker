@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { eq, and, desc, asc } from 'drizzle-orm'
+import { eq, and, desc, asc, sql } from 'drizzle-orm'
 import { tasks } from '@coworker/db'
 import { getContainer } from '../container.js'
 import { authMiddleware } from '../middleware/auth.js'
@@ -56,6 +56,40 @@ taskRoutes.get('/', async (c) => {
   })
 
   return c.json({ tasks: result, hasMore: result.length === limit, offset })
+})
+
+// Stats — aggregate counts by status, priority; overdue count
+taskRoutes.get('/stats', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const { db } = getContainer()
+
+  const all = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.query.tasks.findMany({
+      where: eq(tasks.workspaceId, workspaceId),
+      columns: { status: true, priority: true, dueDate: true },
+    })
+  )
+
+  const byStatus: Record<string, number> = {}
+  const byPriority: Record<string, number> = {}
+  let overdue = 0
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  for (const t of all) {
+    byStatus[t.status] = (byStatus[t.status] ?? 0) + 1
+    byPriority[t.priority] = (byPriority[t.priority] ?? 0) + 1
+    if (t.dueDate && !['done', 'cancelled'].includes(t.status)) {
+      const due = new Date(t.dueDate)
+      due.setHours(0, 0, 0, 0)
+      if (due < today) overdue++
+    }
+  }
+
+  const total = all.length
+  const active = total - (byStatus.done ?? 0) - (byStatus.cancelled ?? 0)
+
+  return c.json({ total, active, overdue, byStatus, byPriority })
 })
 
 // Board view — tasks grouped by status for kanban
