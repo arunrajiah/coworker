@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   DndContext,
@@ -68,6 +68,14 @@ const ALL_DOMAINS: { value: string; label: string }[] = [
 type ActiveAgentMap = Record<string, { tools: string[] }>
 
 export default function BoardPage() {
+  return (
+    <Suspense>
+      <BoardPageInner />
+    </Suspense>
+  )
+}
+
+function BoardPageInner() {
   const params = useParams()
   const slug = params.slug as string
   const token = useAuthStore((s) => s.token)

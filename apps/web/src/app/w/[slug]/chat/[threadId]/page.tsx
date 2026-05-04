@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X } from 'lucide-react'
+import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X, Copy, Check } from 'lucide-react'
 import { api, type Message, type WorkspaceFile } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn, relativeTime } from '@/lib/utils'
 import { nanoid } from 'nanoid'
+import { MarkdownContent } from '@/components/MarkdownContent'
 import { FOUNDER_TEMPLATES } from '@coworker/core'
 import type { TemplateType } from '@coworker/core'
 
@@ -350,8 +351,16 @@ export default function ThreadPage() {
 
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user'
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(message.content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
-    <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
+    <div className={cn('flex gap-3 group/msg', isUser && 'flex-row-reverse')}>
       <div
         className={cn(
           'h-7 w-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 border',
@@ -362,18 +371,34 @@ function MessageBubble({ message }: { message: Message }) {
       >
         {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
       </div>
-      <div className={cn('space-y-1 max-w-[75ch]', isUser && 'items-end flex flex-col')}>
+      <div className={cn('space-y-1 max-w-[75ch] min-w-0', isUser && 'items-end flex flex-col')}>
         <div
           className={cn(
-            'rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+            'rounded-2xl px-4 py-2.5 text-sm',
             isUser
               ? 'bg-primary text-primary-foreground rounded-tr-sm'
               : 'bg-muted text-foreground rounded-tl-sm'
           )}
         >
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          {isUser ? (
+            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+          ) : (
+            <MarkdownContent content={message.content} />
+          )}
         </div>
-        <p className="text-xs text-muted-foreground px-1">{relativeTime(message.createdAt)}</p>
+        <div className={cn('flex items-center gap-1.5 px-1', isUser && 'flex-row-reverse')}>
+          <p className="text-xs text-muted-foreground">{relativeTime(message.createdAt)}</p>
+          <button
+            onClick={handleCopy}
+            title="Copy message"
+            className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded text-muted-foreground hover:text-foreground"
+          >
+            {copied
+              ? <Check className="h-3 w-3 text-green-500" />
+              : <Copy className="h-3 w-3" />
+            }
+          </button>
+        </div>
       </div>
     </div>
   )

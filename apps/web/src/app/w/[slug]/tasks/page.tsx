@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useMemo, Suspense } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Circle, ArrowUpCircle, CheckCircle2, XCircle, Bot, Clock, Search, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, type Task, type TaskStatus } from '@/lib/api'
@@ -35,16 +35,32 @@ const PRIORITY_COLORS = {
 
 const PAGE_SIZE = 25
 
+const VALID_FILTERS = ['active', 'in_progress', 'done', 'all'] as const
+type FilterType = typeof VALID_FILTERS[number]
+
 export default function TasksPage() {
+  return (
+    <Suspense>
+      <TasksPageInner />
+    </Suspense>
+  )
+}
+
+function TasksPageInner() {
   const params = useParams()
   const slug = params.slug as string
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [offset, setOffset] = useState(0)
-  const [filter, setFilter] = useState<string>('active')
+  const [filter, setFilter] = useState<FilterType>(() => {
+    const p = searchParams.get('filter')
+    return (VALID_FILTERS.includes(p as FilterType) ? p : 'active') as FilterType
+  })
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -157,10 +173,16 @@ export default function TasksPage() {
 
       {/* Filters */}
       <div className="border-b border-border px-6 py-2 flex gap-1">
-        {(['active', 'in_progress', 'done', 'all'] as const).map((s) => (
+        {VALID_FILTERS.map((s) => (
           <button
             key={s}
-            onClick={() => setFilter(s)}
+            onClick={() => {
+              setFilter(s)
+              const sp = new URLSearchParams(searchParams.toString())
+              if (s === 'active') sp.delete('filter')
+              else sp.set('filter', s)
+              router.replace(`/w/${slug}/tasks${sp.size ? `?${sp}` : ''}`, { scroll: false })
+            }}
             className={cn(
               'px-3 py-1 rounded-md text-sm transition-colors',
               filter === s
