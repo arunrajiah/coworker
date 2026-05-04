@@ -147,3 +147,18 @@ chatRoutes.post(
     return c.json({ message: userMessage, agentRunId: run.id, threadId }, 201)
   }
 )
+
+// Delete all messages in a thread
+chatRoutes.delete('/threads/:threadId', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const threadId = c.req.param('threadId')
+  const { db } = getContainer()
+
+  await withWorkspace(db, workspaceId, async (tx) =>
+    tx.delete(messages).where(
+      and(eq(messages.workspaceId, workspaceId), eq(messages.threadId, threadId))
+    )
+  )
+
+  return c.json({ ok: true })
+})

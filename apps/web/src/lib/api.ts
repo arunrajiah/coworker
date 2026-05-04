@@ -243,6 +243,8 @@ export const api = {
         `/api/workspaces/${slug}/chat/threads/${threadId}/messages`,
         { method: 'POST', body: JSON.stringify({ content, fileIds }) }
       ),
+    deleteThread: (slug: string, threadId: string) =>
+      apiRequest(`/api/workspaces/${slug}/chat/threads/${threadId}`, { method: 'DELETE' }),
   },
 }
 

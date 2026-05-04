@@ -7,10 +7,11 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
 import { api } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
-import type { Workspace } from '@/lib/api'
+import type { Workspace, Task } from '@/lib/api'
 import { FOUNDER_TEMPLATES } from '@coworker/core'
 import type { TemplateType } from '@coworker/core'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { WorkspaceSocket } from '@/lib/ws'
 
 const TEMPLATE_ICONS: Record<string, string> = {
   saas: '🚀',
@@ -42,15 +43,44 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [isDark, setIsDark] = useState(false)
   const [activeTaskCount, setActiveTaskCount] = useState<number | null>(null)
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
+  const token = useAuthStore((s) => s.token)
 
-  useEffect(() => {
-    api.workspaces.get(slug).then(setWorkspace).catch(() => {})
-    // Fetch active (non-done, non-cancelled) task count for the badge
+  const refreshTaskCount = useCallback(() => {
     api.tasks.list(slug, { limit: 100, offset: 0 }).then(({ tasks }) => {
       const active = tasks.filter((t) => !['done', 'cancelled'].includes(t.status))
       setActiveTaskCount(active.length)
     }).catch(() => {})
   }, [slug])
+
+  useEffect(() => {
+    api.workspaces.get(slug).then((ws) => { setWorkspace(ws); setWorkspaceId(ws.id) }).catch(() => {})
+    refreshTaskCount()
+  }, [slug, refreshTaskCount])
+
+  // Refresh badge count on real-time task events
+  useEffect(() => {
+    if (!workspaceId || !token) return
+    const socket = new WorkspaceSocket(workspaceId, token)
+    socket.connect()
+    const off = socket.on((event) => {
+      if (event.type === 'task:created' || event.type === 'task:updated' || event.type === 'task:deleted') {
+        // Optimistic update for task:created / task:updated without refetch
+        setActiveTaskCount((prev) => {
+          if (prev === null) return prev
+          if (event.type === 'task:created') {
+            const t = event.task as Task
+            return ['done', 'cancelled'].includes(t.status) ? prev : prev + 1
+          }
+          if (event.type === 'task:deleted') return Math.max(0, prev - 1)
+          return prev
+        })
+        // For updates (status change), do a lightweight refetch
+        if (event.type === 'task:updated') refreshTaskCount()
+      }
+    })
+    return () => { off(); socket.disconnect() }
+  }, [workspaceId, token, refreshTaskCount])
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains('dark'))

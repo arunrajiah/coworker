@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter, usePathname } from 'next/navigation'
-import { Plus, MessageSquare, Moon, Bot } from 'lucide-react'
+import { Plus, MessageSquare, Moon, Bot, Trash2 } from 'lucide-react'
 import { api, type Message } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
@@ -58,6 +58,16 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     router.push(`/w/${slug}/chat/${id}`)
   }
 
+  async function handleDeleteThread(threadId: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    await api.chat.deleteThread(slug, threadId).catch(() => {})
+    setThreads((prev) => prev.filter((t) => t.threadId !== threadId))
+    // If we deleted the active thread, go back to the chat base
+    if (activeThreadId === threadId) {
+      router.push(`/w/${slug}/chat`)
+    }
+  }
+
   const activeThreadId = pathname.split('/').at(-1)
   const isBase = pathname === `/w/${slug}/chat`
 
@@ -86,15 +96,15 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
             const isActive = activeThreadId === thread.threadId
             const isAutopilot = thread.threadId.startsWith('autopilot:')
             return (
-              <button
+              <div
                 key={thread.threadId}
                 onClick={() => router.push(`/w/${slug}/chat/${thread.threadId}`)}
                 className={cn(
-                  'w-full text-left rounded-lg px-3 py-2 transition-colors group',
+                  'relative w-full text-left rounded-lg px-3 py-2 transition-colors group cursor-pointer',
                   isActive ? 'bg-background shadow-sm' : 'hover:bg-background/60'
                 )}
               >
-                <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="flex items-center gap-1.5 mb-0.5 pr-5">
                   {isAutopilot ? (
                     <Moon className="h-3 w-3 text-primary shrink-0" />
                   ) : thread.hasAgentActivity ? (
@@ -106,10 +116,18 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                     {relativeTime(thread.lastMessage.createdAt)}
                   </span>
                 </div>
-                <p className="text-xs leading-snug text-foreground line-clamp-2 font-medium">
+                <p className="text-xs leading-snug text-foreground line-clamp-2 font-medium pr-5">
                   {isAutopilot ? thread.threadId.replace('autopilot:', 'Autopilot: ') : thread.title}
                 </p>
-              </button>
+                {/* Delete button — hover reveal */}
+                <button
+                  onClick={(e) => handleDeleteThread(thread.threadId, e)}
+                  title="Delete conversation"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
             )
           })}
         </div>

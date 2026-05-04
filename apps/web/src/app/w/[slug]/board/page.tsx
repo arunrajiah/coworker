@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Bot, Loader2, ChevronDown, GitBranch, Pencil } from 'lucide-react'
+import { Plus, Bot, Loader2, ChevronDown, GitBranch, Pencil, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, type Task, type TaskStatus, type TaskDomain, type BoardColumns } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
@@ -86,6 +86,7 @@ function BoardPageInner() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeDomain, setActiveDomain] = useState(() => searchParams.get('domain') ?? 'all')
+  const [boardSearch, setBoardSearch] = useState('')
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   const [agentActivity, setAgentActivity] = useState<ActiveAgentMap>({})
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
@@ -290,6 +291,17 @@ function BoardPageInner() {
           )}
         </div>
 
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            value={boardSearch}
+            onChange={(e) => setBoardSearch(e.target.value)}
+            placeholder="Search cards…"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-input bg-background text-sm w-44 focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+          />
+        </div>
+
         {/* Domain filter */}
         <div className="relative">
           <select
@@ -325,11 +337,18 @@ function BoardPageInner() {
         >
           <div className="flex-1 overflow-x-auto overflow-y-hidden">
             <div className="flex gap-4 h-full px-6 py-4 min-w-max">
-              {COLUMN_ORDER.map((status) => (
+              {COLUMN_ORDER.map((status) => {
+                const colTasks = boardSearch.trim()
+                  ? (columns[status] ?? []).filter((t) =>
+                      t.title.toLowerCase().includes(boardSearch.toLowerCase()) ||
+                      (t.description?.toLowerCase().includes(boardSearch.toLowerCase()) ?? false)
+                    )
+                  : (columns[status] ?? [])
+                return (
                 <BoardColumn
                   key={status}
                   status={status}
-                  tasks={columns[status] ?? []}
+                  tasks={colTasks}
                   agentActivity={agentActivity}
                   addingTo={addingTo}
                   onAddStart={() => setAddingTo(status)}
@@ -345,7 +364,8 @@ function BoardPageInner() {
                   }}
                   onEditTask={setEditingTask}
                 />
-              ))}
+                )
+              })}
             </div>
           </div>
 
