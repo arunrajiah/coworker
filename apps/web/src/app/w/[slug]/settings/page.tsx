@@ -1130,7 +1130,7 @@ function SlackSection({ slug }: { slug: string }) {
           <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1.5 text-xs text-muted-foreground">
             <p className="font-medium text-foreground">Using the integration:</p>
             <p>• DM your bot directly — every message goes through the agent loop.</p>
-            <p>• Mention the bot in any channel where it's added.</p>
+            <p>• Mention the bot in any channel where it&apos;s added.</p>
             <p>• Replies stream back in the same thread.</p>
           </div>
           <button
