@@ -19,6 +19,8 @@ const TEMPLATE_ICONS: Record<string, string> = {
   ecommerce: '🛒',
   consulting: '💼',
   freelancer: '⚡',
+  creator: '🎬',
+  real_estate: '🏠',
   general: '✦',
 }
 

@@ -14,6 +14,7 @@ const SETTINGS_TABS = [
   { id: 'git', label: 'Git' },
   { id: 'vercel', label: 'Vercel' },
   { id: 'telegram', label: 'Telegram' },
+  { id: 'slack', label: 'Slack' },
   { id: 'files', label: 'Files' },
 ] as const
 
@@ -57,6 +58,7 @@ export default function SettingsPage() {
           {activeTab === 'git' && <GitSection slug={slug} />}
           {activeTab === 'vercel' && <VercelSection slug={slug} />}
           {activeTab === 'telegram' && <TelegramSection slug={slug} />}
+          {activeTab === 'slack' && <SlackSection slug={slug} />}
           {activeTab === 'files' && <FilesSection slug={slug} />}
         </div>
       </div>
@@ -1062,6 +1064,132 @@ function FilePreviewModal({ file, slug, onClose }: { file: WorkspaceFile; slug: 
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function SlackSection({ slug }: { slug: string }) {
+  const [status, setStatus] = useState<{ connected: boolean; teamName?: string; connectedAt?: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [botToken, setBotToken] = useState('')
+  const [appToken, setAppToken] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    api.slack.status(slug).then(setStatus).finally(() => setLoading(false))
+  }, [slug])
+
+  async function handleConnect(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const result = await api.slack.connect(slug, { botToken: botToken.trim(), appToken: appToken.trim() || undefined })
+      setStatus({ connected: true, teamName: result.teamName })
+      setBotToken('')
+      setAppToken('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Connection failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDisconnect() {
+    await api.slack.disconnect(slug)
+    setStatus(null)
+  }
+
+  if (loading) return <div className="flex items-center justify-center h-40"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold">Slack</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Connect a Slack bot so you can message your coworker from any Slack channel or DM.
+        </p>
+      </div>
+
+      {status?.connected ? (
+        <div className="rounded-xl border border-border p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-[#4A154B]/10 flex items-center justify-center">
+              <span className="text-lg">🔷</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Connected to {status.teamName ?? 'Slack workspace'}</p>
+              {status.connectedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Since {new Date(status.connectedAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1.5 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground">Using the integration:</p>
+            <p>• DM your bot directly — every message goes through the agent loop.</p>
+            <p>• Mention the bot in any channel where it's added.</p>
+            <p>• Replies stream back in the same thread.</p>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-red-500 hover:border-red-200 transition-colors"
+          >
+            <Unplug className="h-3.5 w-3.5" />
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleConnect} className="rounded-xl border border-border p-5 space-y-4">
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 space-y-1.5 text-xs text-blue-700 dark:text-blue-300">
+            <p className="font-medium">Setup in 3 steps:</p>
+            <p>1. Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="underline">api.slack.com/apps</a> → Create New App → From Scratch</p>
+            <p>2. Add OAuth scopes: <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">chat:write</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">im:history</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">im:read</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">channels:history</code> — then install to your workspace.</p>
+            <p>3. For Socket Mode (no public URL needed): enable Socket Mode, generate an App-Level Token with <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">connections:write</code>.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Bot User OAuth Token <span className="text-red-500">*</span></label>
+            <input
+              required
+              value={botToken}
+              onChange={(e) => setBotToken(e.target.value)}
+              placeholder="xoxb-..."
+              className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">Found under OAuth & Permissions → Bot User OAuth Token</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">App-Level Token (Socket Mode) <span className="text-muted-foreground">optional</span></label>
+            <input
+              value={appToken}
+              onChange={(e) => setAppToken(e.target.value)}
+              placeholder="xapp-..."
+              className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">Required for Socket Mode (no webhook URL). Found under Basic Information → App-Level Tokens.</p>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={saving || !botToken}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors"
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Connect Slack
+          </button>
+        </form>
+      )}
     </div>
   )
 }

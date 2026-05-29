@@ -233,6 +233,125 @@ in terms of hourly rate, project profitability, and work-life balance.`,
     ],
   },
 
+  creator: {
+    type: 'creator',
+    name: 'Creator',
+    description: 'For content creators — YouTubers, podcasters, newsletter writers, and influencers',
+    systemPromptAddition: `You are the AI coworker for a content creator. You understand metrics like
+subscriber count, views, watch time, open rate, sponsorship revenue, and CPM. You
+help plan content calendars, manage brand deals, track publishing deadlines, and grow
+audience. You think in terms of content performance, audience engagement, and
+monetisation. When discussing content ideas, consider relevance to the audience,
+potential reach, and alignment with the creator's niche.`,
+    defaultSkills: [
+      {
+        name: 'Content Brief',
+        description: 'Draft a content brief for a new piece',
+        prompt:
+          'When asked for a content brief, help outline the concept, target audience, key points, call-to-action, and distribution plan for a new video, episode, or newsletter issue.',
+        triggerPhrase: '/brief',
+        tools: ['create_task'],
+      },
+      {
+        name: 'Sponsor Pitch',
+        description: 'Draft an outreach message to a potential sponsor',
+        prompt:
+          'When asked to write a sponsor pitch, help craft a professional outreach email covering audience demographics, engagement rates, content alignment, and proposed collaboration format.',
+        triggerPhrase: '/sponsor',
+        tools: ['create_task'],
+      },
+    ],
+    defaultAutopilotRules: [
+      {
+        name: 'Weekly Content Review',
+        description: 'Monday content planning session',
+        triggerType: 'schedule',
+        triggerConfig: { cron: '0 9 * * MON' },
+        actionType: 'run_agent',
+        actionConfig: {
+          prompt:
+            'Good morning! Let\'s plan the content week. What\'s scheduled for publishing? What needs to be created, edited, or promoted? Any brand deals to follow up on?',
+        },
+      },
+      {
+        name: 'Friday Publishing Check',
+        description: 'Verify upcoming content is ready',
+        triggerType: 'schedule',
+        triggerConfig: { cron: '0 15 * * FRI' },
+        actionType: 'run_agent',
+        actionConfig: {
+          prompt:
+            'It\'s Friday. Review all tasks tagged with content or publishing. What\'s going live next week? What still needs editing or scheduling?',
+        },
+      },
+    ],
+    defaultTaskLabels: ['video', 'podcast', 'newsletter', 'sponsorship', 'editing', 'promotion', 'idea'],
+    suggestedFirstActions: [
+      'What content are you working on right now?',
+      'Help me build a content calendar for next month',
+      'Draft a sponsor pitch for a brand in my niche',
+    ],
+  },
+
+  real_estate: {
+    type: 'real_estate',
+    name: 'Real Estate',
+    description: 'For real estate agents, investors, and property managers',
+    systemPromptAddition: `You are the AI coworker for a real estate professional. You understand
+GCI (Gross Commission Income), pipeline value, days on market, cap rate, cash-on-cash
+return, and property management KPIs. You help track listings, manage buyer and seller
+leads, prepare for client meetings, and monitor investment properties. You think in
+terms of pipeline conversion, transaction volume, and portfolio performance.`,
+    defaultSkills: [
+      {
+        name: 'CMA Summary',
+        description: 'Prepare a comparable market analysis summary',
+        prompt:
+          'When asked for a CMA, help draft a structured summary comparing recent sales, active listings, and pending transactions to estimate a property\'s market value. Ask for the address and key details if not provided.',
+        triggerPhrase: '/cma',
+        tools: ['create_task'],
+      },
+      {
+        name: 'Listing Status',
+        description: 'Review all active listings and their status',
+        prompt:
+          'When asked about listings, review all open tasks related to active listings. Highlight any price reductions needed, upcoming open houses, or properties that have been on market too long.',
+        triggerPhrase: '/listings',
+        tools: ['search_tasks', 'create_task'],
+      },
+    ],
+    defaultAutopilotRules: [
+      {
+        name: 'Daily Lead Follow-up',
+        description: 'Morning reminder to follow up with leads',
+        triggerType: 'schedule',
+        triggerConfig: { cron: '0 8 * * MON-FRI' },
+        actionType: 'run_agent',
+        actionConfig: {
+          prompt:
+            'Good morning! Review any open buyer or seller lead tasks. Who needs a follow-up call or email today? Any showings or offers to prepare for?',
+        },
+      },
+      {
+        name: 'Weekly Pipeline Review',
+        description: 'Review the full deal pipeline every week',
+        triggerType: 'schedule',
+        triggerConfig: { cron: '0 9 * * WED' },
+        actionType: 'run_agent',
+        actionConfig: {
+          prompt:
+            'It\'s Wednesday — mid-week pipeline check. How many deals are active? Which are at risk? What\'s the estimated GCI for the month?',
+        },
+      },
+    ],
+    defaultTaskLabels: ['listing', 'buyer', 'seller', 'offer', 'closing', 'showing', 'lead', 'investment'],
+    suggestedFirstActions: [
+      'How many active listings and buyer leads do you have right now?',
+      'Help me prepare for a listing presentation',
+      'What deals are closest to closing this month?',
+    ],
+  },
+
   general: {
     type: 'general',
     name: 'General',

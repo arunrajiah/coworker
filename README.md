@@ -140,6 +140,8 @@ Pick your business type when you create a workspace. Your coworker arrives pre-c
 | Ecommerce | AOV, ROAS, inventory, campaigns |
 | Consulting | Engagements, deliverables, pipeline |
 | Freelancer | Projects, invoices, deadlines |
+| Creator | Subscribers, views, sponsorships, content calendar |
+| Real Estate | Listings, GCI, pipeline, buyer/seller leads |
 
 ---
 
@@ -273,6 +275,21 @@ Messages you send to the bot go through the same agent loop as the web app. Resp
 
 ---
 
+## Slack integration
+
+Connect your coworker to a Slack bot so you can message it from any DM or channel.
+
+**Setup:**
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → From Scratch
+2. Under **OAuth & Permissions**, add bot scopes: `chat:write`, `im:history`, `im:read`, `channels:history`
+3. Install the app to your workspace — copy the **Bot User OAuth Token** (`xoxb-...`)
+4. For Socket Mode (no public URL needed): enable **Socket Mode**, generate an **App-Level Token** (`xapp-...`) with `connections:write` scope
+5. In your workspace **Settings → Slack**, paste the tokens and click **Connect Slack**
+
+Messages sent to the bot (DM or channel mention) go through the same agent loop as the web app.
+
+---
+
 ## File uploads
 
 Upload PDFs, images, and text files to your workspace from **Settings → Files**. Attached files show up in the agent's context when you include them in a message using the paperclip icon in the chat input. The agent can also list your uploaded files with the `list_files` tool.
@@ -290,9 +307,10 @@ Upload PDFs, images, and text files to your workspace from **Settings → Files*
 - [x] Dark mode
 - [x] Skills management (dedicated page, trigger phrases)
 - [x] Settings tab navigation + workspace rename
-- [ ] WhatsApp / Slack integration
-- [ ] PDF text extraction + image vision
-- [ ] More founder templates (Creator, Real estate)
+- [x] Slack integration (Socket Mode bot)
+- [x] PDF text extraction + image vision
+- [x] More founder templates (Creator, Real Estate)
+- [ ] WhatsApp integration
 - [ ] Public skills marketplace
 - [ ] Team / multi-user workspaces
 - [ ] Mobile app

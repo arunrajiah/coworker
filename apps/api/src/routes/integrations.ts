@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { eq, sql } from 'drizzle-orm'
-import { telegramConnections, files, memories } from '@coworker/db'
+import { telegramConnections, slackConnections, files, memories } from '@coworker/db'
 import { withWorkspace } from '@coworker/db'
 import { getContainer } from '../container.js'
 import { authMiddleware } from '../middleware/auth.js'
@@ -182,4 +182,88 @@ integrationRoutes.get('/files/:fileId/extracted-text', async (c) => {
     extractedAt: file.extractedAt,
     chunks: (chunks as any[]).map((r: any) => ({ content: r.content as string, metadata: r.metadata })),
   })
+})
+
+// ── Slack ─────────────────────────────────────────────────────────────────────
+
+// GET /slack — connection status for this workspace
+integrationRoutes.get('/slack', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const { db } = getContainer()
+
+  const connection = await db.query.slackConnections.findFirst({
+    where: eq(slackConnections.workspaceId, workspaceId),
+  })
+
+  if (!connection) return c.json(null)
+
+  return c.json({
+    connected: true,
+    teamName: connection.teamName,
+    teamId: connection.teamId,
+    connectedAt: connection.connectedAt,
+  })
+})
+
+// POST /slack/connect — save a bot token and connect
+integrationRoutes.post('/slack/connect', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const user = c.get('user')
+  const { db } = getContainer()
+  const { botToken, appToken } = await c.req.json<{ botToken: string; appToken?: string }>()
+
+  if (!botToken?.startsWith('xoxb-')) {
+    return c.json({ error: 'Invalid bot token — must start with xoxb-' }, 400)
+  }
+
+  // Validate token and fetch workspace info via Slack API
+  let teamName: string | undefined
+  let teamId: string | undefined
+  let botUserId: string | undefined
+  try {
+    const res = await fetch('https://slack.com/api/auth.test', {
+      headers: { Authorization: `Bearer ${botToken}` },
+    })
+    const data = await res.json() as { ok: boolean; team?: string; team_id?: string; user_id?: string; error?: string }
+    if (!data.ok) return c.json({ error: `Slack API error: ${data.error}` }, 400)
+    teamName = data.team
+    teamId = data.team_id
+    botUserId = data.user_id
+  } catch {
+    return c.json({ error: 'Could not reach Slack API' }, 502)
+  }
+
+  // Upsert connection
+  const existing = await db.query.slackConnections.findFirst({
+    where: eq(slackConnections.workspaceId, workspaceId),
+  })
+
+  if (existing) {
+    await db
+      .update(slackConnections)
+      .set({ botToken, appToken: appToken ?? null, teamName: teamName ?? null, teamId: teamId ?? null, botUserId: botUserId ?? null })
+      .where(eq(slackConnections.workspaceId, workspaceId))
+  } else {
+    await db.insert(slackConnections).values({
+      workspaceId,
+      userId: user.sub,
+      botToken,
+      appToken: appToken ?? null,
+      teamName: teamName ?? null,
+      teamId: teamId ?? null,
+      botUserId: botUserId ?? null,
+    })
+  }
+
+  return c.json({ connected: true, teamName, teamId })
+})
+
+// DELETE /slack/disconnect
+integrationRoutes.delete('/slack/disconnect', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const { db } = getContainer()
+
+  await db.delete(slackConnections).where(eq(slackConnections.workspaceId, workspaceId))
+
+  return c.json({ ok: true })
 })

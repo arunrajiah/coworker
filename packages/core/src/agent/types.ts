@@ -4,6 +4,8 @@ export type TemplateType =
   | 'ecommerce'
   | 'consulting'
   | 'freelancer'
+  | 'creator'
+  | 'real_estate'
   | 'general'
 
 export interface AgentContext {

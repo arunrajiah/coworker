@@ -235,6 +235,20 @@ export const api = {
       ),
   },
 
+  slack: {
+    status: (slug: string) =>
+      apiRequest<{ connected: boolean; teamName?: string; teamId?: string; connectedAt?: string } | null>(
+        `/api/workspaces/${slug}/slack`
+      ),
+    connect: (slug: string, data: { botToken: string; appToken?: string }) =>
+      apiRequest<{ connected: boolean; teamName?: string; teamId?: string }>(
+        `/api/workspaces/${slug}/slack/connect`,
+        { method: 'POST', body: JSON.stringify(data) }
+      ),
+    disconnect: (slug: string) =>
+      apiRequest(`/api/workspaces/${slug}/slack/disconnect`, { method: 'DELETE' }),
+  },
+
   chat: {
     threads: (slug: string) =>
       apiRequest<{ threadId: string; title: string; lastMessage: Message; hasAgentActivity: boolean }[]>(

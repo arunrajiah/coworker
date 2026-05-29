@@ -2,7 +2,7 @@ import { uuid, text, timestamp, jsonb, pgEnum, index } from 'drizzle-orm/pg-core
 import { tenantSchema } from './_schema'
 
 export const messageRoleEnum = pgEnum('message_role', ['user', 'assistant', 'system', 'tool'])
-export const messageChannelEnum = pgEnum('message_channel', ['web', 'telegram', 'whatsapp'])
+export const messageChannelEnum = pgEnum('message_channel', ['web', 'telegram', 'whatsapp', 'slack'])
 
 export const messages = tenantSchema.table(
   'messages',

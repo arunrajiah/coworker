@@ -5,6 +5,7 @@ import { createClient } from '@coworker/db'
 import { executeAgentRun, type AgentJobData } from './agent/executor.js'
 import { syncScheduledRules, executeAutopilotRule, handleGitEvent, type AutopilotJobData } from './autopilot/scheduler.js'
 import { startTelegramBot } from './integrations/telegram.js'
+import { startSlackBots } from './integrations/slack.js'
 import { processFile, type FileIngestionJobData } from './ingestion/index.js'
 
 const env = getEnv()
@@ -95,11 +96,20 @@ if (env.TELEGRAM_BOT_TOKEN) {
   console.log('[telegram] No TELEGRAM_BOT_TOKEN set — Telegram integration disabled')
 }
 
+// ── Slack bots (optional, per-workspace) ─────────────────────────────────────
+
+const slackBots = await startSlackBots(db, redis, agentQueue).catch((err) => {
+  console.error('[slack] Failed to start Slack bots:', err)
+  return null
+})
+console.log('[slack] Slack bot manager started')
+
 // ── Graceful shutdown ────────────────────────────────────────────────────────
 
 process.on('SIGTERM', async () => {
   console.log('[worker] Shutting down...')
   telegramBot?.stop()
+  await slackBots?.stop()
   await agentWorker.close()
   await autopilotWorker.close()
   await fileWorker.close()
