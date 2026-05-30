@@ -6,6 +6,7 @@ import { executeAgentRun, type AgentJobData } from './agent/executor.js'
 import { syncScheduledRules, executeAutopilotRule, handleGitEvent, type AutopilotJobData } from './autopilot/scheduler.js'
 import { startTelegramBot } from './integrations/telegram.js'
 import { startSlackBots } from './integrations/slack.js'
+import { startWhatsappReplyService } from './integrations/whatsapp.js'
 import { processFile, type FileIngestionJobData } from './ingestion/index.js'
 
 const env = getEnv()
@@ -104,12 +105,21 @@ const slackBots = await startSlackBots(db, redis, agentQueue).catch((err) => {
 })
 console.log('[slack] Slack bot manager started')
 
+// ── WhatsApp reply service (always on — handles replies for all workspaces) ───
+
+const whatsappService = await startWhatsappReplyService(db, redis).catch((err) => {
+  console.error('[whatsapp] Failed to start reply service:', err)
+  return null
+})
+console.log('[whatsapp] Reply service started')
+
 // ── Graceful shutdown ────────────────────────────────────────────────────────
 
 process.on('SIGTERM', async () => {
   console.log('[worker] Shutting down...')
   telegramBot?.stop()
   await slackBots?.stop()
+  await whatsappService?.stop()
   await agentWorker.close()
   await autopilotWorker.close()
   await fileWorker.close()

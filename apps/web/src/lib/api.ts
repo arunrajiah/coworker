@@ -235,6 +235,20 @@ export const api = {
       ),
   },
 
+  whatsapp: {
+    status: (slug: string) =>
+      apiRequest<{ connected: boolean; fromNumber: string; webhookUrl: string; connectedAt?: string } | null>(
+        `/api/workspaces/${slug}/whatsapp`
+      ),
+    connect: (slug: string, data: { accountSid: string; authToken: string; fromNumber: string }) =>
+      apiRequest<{ connected: boolean; fromNumber: string; webhookUrl: string }>(
+        `/api/workspaces/${slug}/whatsapp/connect`,
+        { method: 'POST', body: JSON.stringify(data) }
+      ),
+    disconnect: (slug: string) =>
+      apiRequest(`/api/workspaces/${slug}/whatsapp/disconnect`, { method: 'DELETE' }),
+  },
+
   slack: {
     status: (slug: string) =>
       apiRequest<{ connected: boolean; teamName?: string; teamId?: string; connectedAt?: string } | null>(

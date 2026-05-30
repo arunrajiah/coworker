@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
-import { gitConnections, tasks } from '@coworker/db'
+import { gitConnections, whatsappConnections, tasks, messages, agentRuns } from '@coworker/db'
 import { withWorkspace } from '@coworker/db'
 import { createGitAdapter } from '@coworker/adapter-git'
 import { getContainer } from '../container.js'
+import { Queue } from 'bullmq'
+import { nanoid } from 'nanoid'
 
 export const webhookRoutes = new Hono()
 
@@ -124,4 +126,102 @@ webhookRoutes.post('/git/:connectionId', async (c) => {
   )
 
   return c.json({ ok: true })
+})
+
+// ── WhatsApp (Twilio) ─────────────────────────────────────────────────────────
+
+const WHATSAPP_THREAD_PREFIX = 'wa:thread:'
+
+// POST /webhooks/whatsapp/:workspaceId
+// Twilio calls this when a WhatsApp message arrives for a given workspace
+webhookRoutes.post('/whatsapp/:workspaceId', async (c) => {
+  const workspaceId = c.req.param('workspaceId')
+  const { db, redis } = getContainer()
+
+  // Parse Twilio form-encoded body
+  const body = await c.req.parseBody()
+  const from = body['From'] as string | undefined
+  const to = body['To'] as string | undefined
+  const text = (body['Body'] as string | undefined)?.trim()
+  const accountSid = body['AccountSid'] as string | undefined
+
+  if (!from || !text || !accountSid) {
+    return c.body(null, 204)
+  }
+
+  // Look up connection
+  const conn = await db.query.whatsappConnections.findFirst({
+    where: eq(whatsappConnections.workspaceId, workspaceId),
+  })
+  if (!conn || conn.accountSid !== accountSid) {
+    return c.body(null, 204) // silently ignore unknown workspaces
+  }
+
+  // Validate Twilio signature (optional but recommended for production)
+  const twilioSignature = c.req.header('X-Twilio-Signature') ?? ''
+  if (twilioSignature) {
+    try {
+      const { validateRequest } = await import('twilio')
+      const url = `${process.env.API_URL ?? 'http://localhost:3001'}/webhooks/whatsapp/${workspaceId}`
+      const params = Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v)]))
+      const valid = validateRequest(conn.authToken, twilioSignature, url, params)
+      if (!valid) return c.text('Forbidden', 403)
+    } catch {
+      // If twilio validation fails to import, skip validation
+    }
+  }
+
+  // Get or create a stable thread ID for this WhatsApp number
+  const threadKey = `${WHATSAPP_THREAD_PREFIX}${workspaceId}:${from}`
+  let threadId = await redis.get(threadKey)
+  if (!threadId) {
+    threadId = nanoid()
+    await redis.set(threadKey, threadId)
+  }
+
+  // Save user message
+  const [userMessage] = await withWorkspace(db, workspaceId, async (tx) =>
+    tx
+      .insert(messages)
+      .values({
+        workspaceId,
+        threadId,
+        role: 'user',
+        content: text,
+        channel: 'whatsapp',
+        userId: conn.userId,
+        externalMsgId: (body['MessageSid'] as string) || null,
+      })
+      .returning()
+  )
+
+  // Create agent run
+  const [run] = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.insert(agentRuns).values({ workspaceId, trigger: 'user_message', input: text }).returning()
+  )
+
+  // Store reply metadata so the worker can send back via Twilio
+  await redis.set(
+    `wa:reply:${run.id}`,
+    JSON.stringify({
+      accountSid: conn.accountSid,
+      authToken: conn.authToken,
+      fromNumber: to ?? conn.fromNumber,
+      toNumber: from,
+    }),
+    'EX',
+    300
+  )
+
+  // Enqueue agent job
+  const agentQueue = new Queue('agent-runs', { connection: redis })
+  await agentQueue.add(
+    'run',
+    { workspaceId, threadId, messageId: userMessage.id, agentRunId: run.id, userId: conn.userId },
+    { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 100, removeOnFail: 500 }
+  )
+
+  // Return empty TwiML response — reply is sent async
+  c.header('Content-Type', 'text/xml')
+  return c.body('<Response></Response>')
 })

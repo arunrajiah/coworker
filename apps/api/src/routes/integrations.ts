@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { eq, sql } from 'drizzle-orm'
-import { telegramConnections, slackConnections, files, memories } from '@coworker/db'
+import { telegramConnections, slackConnections, whatsappConnections, files, memories } from '@coworker/db'
 import { withWorkspace } from '@coworker/db'
 import { getContainer } from '../container.js'
 import { authMiddleware } from '../middleware/auth.js'
@@ -264,6 +264,98 @@ integrationRoutes.delete('/slack/disconnect', async (c) => {
   const { db } = getContainer()
 
   await db.delete(slackConnections).where(eq(slackConnections.workspaceId, workspaceId))
+
+  return c.json({ ok: true })
+})
+
+// ── WhatsApp (Twilio) ─────────────────────────────────────────────────────────
+
+integrationRoutes.get('/whatsapp', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const { db } = getContainer()
+
+  const conn = await db.query.whatsappConnections.findFirst({
+    where: eq(whatsappConnections.workspaceId, workspaceId),
+  })
+  if (!conn) return c.json(null)
+
+  return c.json({
+    connected: true,
+    fromNumber: conn.fromNumber,
+    connectedAt: conn.connectedAt,
+    // Construct the webhook URL the user needs to configure in Twilio
+    webhookUrl: `${process.env.API_URL ?? 'http://localhost:3001'}/webhooks/whatsapp/${workspaceId}`,
+  })
+})
+
+integrationRoutes.post('/whatsapp/connect', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const user = c.get('user')
+  const { db } = getContainer()
+  const { accountSid, authToken, fromNumber } = await c.req.json<{
+    accountSid: string
+    authToken: string
+    fromNumber: string
+  }>()
+
+  if (!accountSid?.startsWith('AC')) {
+    return c.json({ error: 'Invalid Account SID — must start with AC' }, 400)
+  }
+  if (!authToken || authToken.length < 20) {
+    return c.json({ error: 'Invalid Auth Token' }, 400)
+  }
+  if (!fromNumber) {
+    return c.json({ error: 'fromNumber is required' }, 400)
+  }
+
+  // Validate credentials via Twilio API
+  try {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}.json`, {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+      },
+    })
+    if (!res.ok) {
+      const err = await res.json() as { message?: string }
+      return c.json({ error: `Twilio error: ${err.message ?? res.status}` }, 400)
+    }
+  } catch {
+    return c.json({ error: 'Could not reach Twilio API' }, 502)
+  }
+
+  const normalised = fromNumber.startsWith('whatsapp:') ? fromNumber : `whatsapp:${fromNumber}`
+
+  const existing = await db.query.whatsappConnections.findFirst({
+    where: eq(whatsappConnections.workspaceId, workspaceId),
+  })
+
+  if (existing) {
+    await db
+      .update(whatsappConnections)
+      .set({ accountSid, authToken, fromNumber: normalised })
+      .where(eq(whatsappConnections.workspaceId, workspaceId))
+  } else {
+    await db.insert(whatsappConnections).values({
+      workspaceId,
+      userId: user.sub,
+      accountSid,
+      authToken,
+      fromNumber: normalised,
+    })
+  }
+
+  return c.json({
+    connected: true,
+    fromNumber: normalised,
+    webhookUrl: `${process.env.API_URL ?? 'http://localhost:3001'}/webhooks/whatsapp/${workspaceId}`,
+  })
+})
+
+integrationRoutes.delete('/whatsapp/disconnect', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const { db } = getContainer()
+
+  await db.delete(whatsappConnections).where(eq(whatsappConnections.workspaceId, workspaceId))
 
   return c.json({ ok: true })
 })

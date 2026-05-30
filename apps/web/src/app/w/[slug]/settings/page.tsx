@@ -15,6 +15,7 @@ const SETTINGS_TABS = [
   { id: 'vercel', label: 'Vercel' },
   { id: 'telegram', label: 'Telegram' },
   { id: 'slack', label: 'Slack' },
+  { id: 'whatsapp', label: 'WhatsApp' },
   { id: 'files', label: 'Files' },
 ] as const
 
@@ -59,6 +60,7 @@ export default function SettingsPage() {
           {activeTab === 'vercel' && <VercelSection slug={slug} />}
           {activeTab === 'telegram' && <TelegramSection slug={slug} />}
           {activeTab === 'slack' && <SlackSection slug={slug} />}
+          {activeTab === 'whatsapp' && <WhatsAppSection slug={slug} />}
           {activeTab === 'files' && <FilesSection slug={slug} />}
         </div>
       </div>
@@ -1187,6 +1189,178 @@ function SlackSection({ slug }: { slug: string }) {
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Connect Slack
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
+
+function WhatsAppSection({ slug }: { slug: string }) {
+  const [status, setStatus] = useState<{ connected: boolean; fromNumber: string; webhookUrl: string; connectedAt?: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [accountSid, setAccountSid] = useState('')
+  const [authToken, setAuthToken] = useState('')
+  const [fromNumber, setFromNumber] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    api.whatsapp.status(slug).then(setStatus).finally(() => setLoading(false))
+  }, [slug])
+
+  async function handleConnect(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const result = await api.whatsapp.connect(slug, {
+        accountSid: accountSid.trim(),
+        authToken: authToken.trim(),
+        fromNumber: fromNumber.trim(),
+      })
+      setStatus(result)
+      setAccountSid(''); setAuthToken(''); setFromNumber('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Connection failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDisconnect() {
+    await api.whatsapp.disconnect(slug)
+    setStatus(null)
+  }
+
+  async function handleCopyWebhook() {
+    if (!status?.webhookUrl) return
+    await navigator.clipboard.writeText(status.webhookUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (loading) return <div className="flex items-center justify-center h-40"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold">WhatsApp</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Connect a Twilio WhatsApp number so you can message your coworker from WhatsApp.
+        </p>
+      </div>
+
+      {status?.connected ? (
+        <div className="rounded-xl border border-border p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <span className="text-lg">💬</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Connected — {status.fromNumber}</p>
+              {status.connectedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Since {new Date(status.connectedAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Twilio webhook URL</label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-muted border border-border rounded-lg px-3 py-2 font-mono break-all">
+                {status.webhookUrl}
+              </code>
+              <button
+                onClick={handleCopyWebhook}
+                className="shrink-0 p-2 rounded-lg border border-border hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                title="Copy webhook URL"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Set this as the <strong>Messaging webhook URL</strong> in your Twilio console → Messaging → Services (or Active Numbers → Configure).
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1.5 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground">Using the integration:</p>
+            <p>• Send a WhatsApp message to <strong>{status.fromNumber.replace('whatsapp:', '')}</strong>.</p>
+            <p>• Your coworker replies in the same conversation thread.</p>
+            <p>• Use the Twilio sandbox for testing before getting a dedicated number.</p>
+          </div>
+
+          <button
+            onClick={handleDisconnect}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-red-500 hover:border-red-200 transition-colors"
+          >
+            <Unplug className="h-3.5 w-3.5" />
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleConnect} className="rounded-xl border border-border p-5 space-y-4">
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 space-y-1.5 text-xs text-blue-700 dark:text-blue-300">
+            <p className="font-medium">Setup in 3 steps:</p>
+            <p>1. Create a <a href="https://www.twilio.com/console" target="_blank" rel="noopener noreferrer" className="underline">Twilio account</a> and note your <strong>Account SID</strong> and <strong>Auth Token</strong>.</p>
+            <p>2. Enable WhatsApp: use the <a href="https://www.twilio.com/console/sms/whatsapp/sandbox" target="_blank" rel="noopener noreferrer" className="underline">Sandbox</a> for testing, or buy a WhatsApp-enabled number.</p>
+            <p>3. After connecting, set the generated webhook URL in your Twilio console under the number&apos;s messaging configuration.</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Account SID <span className="text-red-500">*</span></label>
+              <input
+                required
+                value={accountSid}
+                onChange={(e) => setAccountSid(e.target.value)}
+                placeholder="ACxxxxxxxxxxxxxxxx"
+                className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Auth Token <span className="text-red-500">*</span></label>
+              <input
+                required
+                type="password"
+                value={authToken}
+                onChange={(e) => setAuthToken(e.target.value)}
+                placeholder="••••••••••••••••••••"
+                className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">WhatsApp number / Sandbox number <span className="text-red-500">*</span></label>
+            <input
+              required
+              value={fromNumber}
+              onChange={(e) => setFromNumber(e.target.value)}
+              placeholder="+14155238886"
+              className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">The Twilio sandbox number is +1 415 523 8886. For dedicated numbers, enter your WhatsApp-enabled Twilio number.</p>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={saving || !accountSid || !authToken || !fromNumber}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors"
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Connect WhatsApp
           </button>
         </form>
       )}

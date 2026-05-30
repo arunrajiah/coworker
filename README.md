@@ -48,7 +48,9 @@ Coworker is an open-source AI coworker for founders. It manages tasks, remembers
 - **Git** — GitHub, GitLab, Bitbucket issue sync + webhook triggers. Issues become kanban tasks automatically.
 - **Vercel** — monitor deployments and trigger deploys from the agent or autopilot.
 - **Telegram** — chat with your coworker from any device.
-- All managed from **Settings** (tabbed: General · AI Model · Git · Vercel · Telegram · Files).
+- **Slack** — Socket Mode bot; DM or @mention your bot in any channel.
+- **WhatsApp** — Twilio-based; message your coworker via WhatsApp using any number.
+- All managed from **Settings** (tabbed: General · AI Model · Git · Vercel · Telegram · Slack · WhatsApp · Files).
 
 ### UX
 - **Dark mode** — Sun/Moon toggle in the sidebar, persisted to `localStorage`, no flash on load.
@@ -310,7 +312,7 @@ Upload PDFs, images, and text files to your workspace from **Settings → Files*
 - [x] Slack integration (Socket Mode bot)
 - [x] PDF text extraction + image vision
 - [x] More founder templates (Creator, Real Estate)
-- [ ] WhatsApp integration
+- [x] WhatsApp integration (Twilio)
 - [ ] Public skills marketplace
 - [ ] Team / multi-user workspaces
 - [ ] Mobile app

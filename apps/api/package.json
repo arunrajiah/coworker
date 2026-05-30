@@ -13,8 +13,8 @@
     "@coworker/adapter-billing-noop": "workspace:*",
     "@coworker/adapter-email-nodemailer": "workspace:*",
     "@coworker/adapter-git": "workspace:^",
-    "@coworker/adapter-vercel": "workspace:*",
     "@coworker/adapter-storage-local": "workspace:*",
+    "@coworker/adapter-vercel": "workspace:*",
     "@coworker/config": "workspace:*",
     "@coworker/core": "workspace:*",
     "@coworker/db": "workspace:*",
@@ -27,6 +27,7 @@
     "jose": "^5.9.6",
     "nanoid": "^5.0.8",
     "slug": "^9.1.0",
+    "twilio": "^6.0.2",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },

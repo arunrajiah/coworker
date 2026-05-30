@@ -4,6 +4,7 @@ export * from './platform/workspaces'
 export * from './platform/sessions'
 export * from './platform/telegram'
 export * from './platform/slack'
+export * from './platform/whatsapp'
 export * from './platform/git'
 export * from './platform/vercel'
 
