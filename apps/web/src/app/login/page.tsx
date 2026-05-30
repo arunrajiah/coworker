@@ -1,18 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const LOCAL_AUTH = process.env.NEXT_PUBLIC_LOCAL_AUTH === 'true'
 
-export default function LoginPage() {
+function LoginPageInner() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') ?? '/workspaces'
   const setAuth = useAuthStore((s) => s.setAuth)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -24,7 +26,7 @@ export default function LoginPage() {
       // LOCAL_AUTH: API returns token + user directly — no email step needed
       if (res.token && res.user) {
         setAuth(res.token, { ...res.user, avatarUrl: null })
-        router.replace('/workspaces')
+        router.replace(redirectTo)
         return
       }
       setSent(true)
@@ -139,5 +141,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPageInner />
+    </Suspense>
   )
 }

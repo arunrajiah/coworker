@@ -1,4 +1,4 @@
-import { uuid, text, timestamp, pgEnum, primaryKey } from 'drizzle-orm/pg-core'
+import { uuid, text, timestamp, pgEnum, primaryKey, index } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { platformSchema } from './_schema'
 import { users } from './users'
@@ -9,6 +9,8 @@ export const templateTypeEnum = pgEnum('template_type', [
   'ecommerce',
   'consulting',
   'freelancer',
+  'creator',
+  'real_estate',
   'general',
 ])
 
@@ -68,6 +70,41 @@ export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) =
   }),
 }))
 
+export const workspaceInvitations = platformSchema.table(
+  'workspace_invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    invitedBy: uuid('invited_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: workspaceMemberRoleEnum('role').notNull().default('member'),
+    token: text('token').notNull().unique(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tokenIdx: index('workspace_invitations_token_idx').on(t.token),
+    workspaceIdx: index('workspace_invitations_workspace_idx').on(t.workspaceId),
+  })
+)
+
+export const workspaceInvitationsRelations = relations(workspaceInvitations, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [workspaceInvitations.workspaceId],
+    references: [workspaces.id],
+  }),
+  invitedByUser: one(users, {
+    fields: [workspaceInvitations.invitedBy],
+    references: [users.id],
+  }),
+}))
+
 export type Workspace = typeof workspaces.$inferSelect
 export type NewWorkspace = typeof workspaces.$inferInsert
 export type WorkspaceMember = typeof workspaceMembers.$inferSelect
+export type WorkspaceInvitation = typeof workspaceInvitations.$inferSelect

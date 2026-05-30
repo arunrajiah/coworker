@@ -59,6 +59,29 @@ export const api = {
     get: (slug: string) => apiRequest<Workspace>(`/api/workspaces/${slug}`),
     update: (slug: string, data: { name?: string; llmProvider?: LLMProvider | null; llmModel?: string | null }) =>
       apiRequest<Workspace>(`/api/workspaces/${slug}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    // Member management
+    listMembers: (slug: string) =>
+      apiRequest<WorkspaceMember[]>(`/api/workspaces/${slug}/members`),
+    updateMember: (slug: string, userId: string, role: 'admin' | 'member') =>
+      apiRequest(`/api/workspaces/${slug}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+    removeMember: (slug: string, userId: string) =>
+      apiRequest(`/api/workspaces/${slug}/members/${userId}`, { method: 'DELETE' }),
+    invite: (slug: string, email: string, role: 'admin' | 'member') =>
+      apiRequest<{ id: string; email: string; role: string; inviteUrl: string; expiresAt: string }>(
+        `/api/workspaces/${slug}/members/invite`,
+        { method: 'POST', body: JSON.stringify({ email, role }) }
+      ),
+    listInvitations: (slug: string) =>
+      apiRequest<WorkspaceInvitation[]>(`/api/workspaces/${slug}/members/invitations`),
+    revokeInvitation: (slug: string, invitationId: string) =>
+      apiRequest(`/api/workspaces/${slug}/members/invitations/${invitationId}`, { method: 'DELETE' }),
+    // Invitation acceptance (public)
+    getInvitation: (token: string) =>
+      apiRequest<{ email: string; role: string; workspaceName: string; workspaceSlug: string; expiresAt: string }>(
+        `/api/workspaces/invitations/${token}`
+      ),
+    acceptInvitation: (token: string) =>
+      apiRequest<{ workspaceSlug: string }>(`/api/workspaces/invitations/${token}/accept`, { method: 'POST' }),
   },
 
   tasks: {
@@ -292,6 +315,23 @@ export interface Workspace {
   createdAt: string
   llmProvider: LLMProvider | null
   llmModel: string | null
+}
+
+export interface WorkspaceMember {
+  userId: string
+  role: 'owner' | 'admin' | 'member'
+  joinedAt: string | null
+  email: string
+  name: string | null
+  avatarUrl: string | null
+}
+
+export interface WorkspaceInvitation {
+  id: string
+  email: string
+  role: 'admin' | 'member'
+  expiresAt: string
+  createdAt: string
 }
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'

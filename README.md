@@ -313,8 +313,8 @@ Upload PDFs, images, and text files to your workspace from **Settings → Files*
 - [x] PDF text extraction + image vision
 - [x] More founder templates (Creator, Real Estate)
 - [x] WhatsApp integration (Twilio)
+- [x] Team / multi-user workspaces
 - [ ] Public skills marketplace
-- [ ] Team / multi-user workspaces
 - [ ] Mobile app
 
 ---
