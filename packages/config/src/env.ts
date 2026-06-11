@@ -17,9 +17,14 @@ const envSchema = z.object({
   GROQ_API_KEY: z.string().optional(),
   MISTRAL_API_KEY: z.string().optional(),
   OLLAMA_BASE_URL: z.string().url().optional(),
+  XAI_API_KEY: z.string().optional(),
+  COHERE_API_KEY: z.string().optional(),
+  DEEPSEEK_API_KEY: z.string().optional(),
+  TOGETHER_API_KEY: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().optional(),
 
-  // Optional explicit override for which provider/model to use by default
-  LLM_PROVIDER: z.enum(['anthropic', 'openai', 'google', 'groq', 'mistral', 'ollama']).optional(),
+  // Optional explicit override — supports "provider:model" syntax (e.g. "anthropic:claude-sonnet-4-5")
+  LLM_PROVIDER: z.string().optional(),
   LLM_MODEL: z.string().optional(),
 
   // Google OAuth (optional — magic link works without it)
@@ -65,7 +70,7 @@ export function getEnv(): Env {
       process.exit(1)
     }
     const d = result.data
-    const hasKey = d.OPENAI_API_KEY || d.ANTHROPIC_API_KEY || d.GOOGLE_API_KEY || d.GROQ_API_KEY || d.MISTRAL_API_KEY || d.OLLAMA_BASE_URL
+    const hasKey = d.OPENAI_API_KEY || d.ANTHROPIC_API_KEY || d.GOOGLE_API_KEY || d.GROQ_API_KEY || d.MISTRAL_API_KEY || d.OLLAMA_BASE_URL || d.XAI_API_KEY || d.COHERE_API_KEY || d.DEEPSEEK_API_KEY || d.TOGETHER_API_KEY || d.OPENROUTER_API_KEY
     if (!hasKey) {
       console.error('At least one LLM provider key is required (OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, or OLLAMA_BASE_URL)')
       process.exit(1)

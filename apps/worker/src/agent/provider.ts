@@ -6,7 +6,18 @@ import { createMistral } from '@ai-sdk/mistral'
 import type { LanguageModel, EmbeddingModel } from 'ai'
 import { getEnv } from '@coworker/config'
 
-export type ProviderName = 'anthropic' | 'openai' | 'google' | 'groq' | 'mistral' | 'ollama'
+export type ProviderName =
+  | 'anthropic'
+  | 'openai'
+  | 'google'
+  | 'groq'
+  | 'mistral'
+  | 'ollama'
+  | 'xai'
+  | 'cohere'
+  | 'deepseek'
+  | 'together'
+  | 'openrouter'
 
 export interface LLMProvider {
   chatModel: LanguageModel
@@ -21,6 +32,11 @@ const DEFAULT_MODELS: Record<ProviderName, string> = {
   groq: 'llama-3.3-70b-versatile',
   mistral: 'mistral-large-latest',
   ollama: 'llama3.2',
+  xai: 'grok-3',
+  cohere: 'command-r-plus',
+  deepseek: 'deepseek-chat',
+  together: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+  openrouter: 'anthropic/claude-sonnet-4-5',
 }
 
 // Default embedding models per provider (null = no native support)
@@ -34,6 +50,22 @@ const DEFAULT_EMBEDDING_MODELS: Partial<Record<ProviderName, string>> = {
 export interface ProviderConfig {
   provider: ProviderName
   model?: string
+  // Optional fallback chain: if primary fails, try these in order
+  fallback?: ProviderConfig[]
+}
+
+/**
+ * Parse a "provider:model" string (aisuite-style) into a ProviderConfig.
+ * Accepts both "anthropic:claude-sonnet-4-5" and plain "anthropic".
+ */
+export function parseModelString(modelString: string): ProviderConfig {
+  const colonIdx = modelString.indexOf(':')
+  if (colonIdx === -1) {
+    return { provider: modelString as ProviderName }
+  }
+  const provider = modelString.slice(0, colonIdx) as ProviderName
+  const model = modelString.slice(colonIdx + 1)
+  return { provider, model }
 }
 
 export function buildLLMProvider(config: ProviderConfig): LLMProvider {
@@ -44,16 +76,19 @@ export function buildLLMProvider(config: ProviderConfig): LLMProvider {
   let chatModel: LanguageModel
   let embeddingModel: EmbeddingModel<string> | null = null
 
+  // Helper: OpenAI embeddings as a universal fallback when a provider has none
+  const openAIEmbedding = (): EmbeddingModel<string> | null => {
+    if (!env.OPENAI_API_KEY) return null
+    const openai = createOpenAI({ apiKey: env.OPENAI_API_KEY })
+    return openai.embedding('text-embedding-3-small')
+  }
+
   switch (provider) {
     case 'anthropic': {
       if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
       const anthropic = createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })
       chatModel = anthropic(chatModelName)
-      // Anthropic has no embedding API — fall back to OpenAI if available
-      if (env.OPENAI_API_KEY) {
-        const openai = createOpenAI({ apiKey: env.OPENAI_API_KEY })
-        embeddingModel = openai.embedding('text-embedding-3-small')
-      }
+      embeddingModel = openAIEmbedding()
       break
     }
 
@@ -77,11 +112,7 @@ export function buildLLMProvider(config: ProviderConfig): LLMProvider {
       if (!env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not configured')
       const groq = createGroq({ apiKey: env.GROQ_API_KEY })
       chatModel = groq(chatModelName)
-      // Groq has no embedding API — fall back to OpenAI if available
-      if (env.OPENAI_API_KEY) {
-        const openai = createOpenAI({ apiKey: env.OPENAI_API_KEY })
-        embeddingModel = openai.embedding('text-embedding-3-small')
-      }
+      embeddingModel = openAIEmbedding()
       break
     }
 
@@ -95,27 +126,92 @@ export function buildLLMProvider(config: ProviderConfig): LLMProvider {
 
     case 'ollama': {
       if (!env.OLLAMA_BASE_URL) throw new Error('OLLAMA_BASE_URL not configured')
-      // Ollama is OpenAI-compatible
       const ollama = createOpenAI({ baseURL: `${env.OLLAMA_BASE_URL}/v1`, apiKey: 'ollama' })
       chatModel = ollama(chatModelName)
-      // Try nomic-embed-text for embeddings; if unavailable, falls back to null
       embeddingModel = ollama.embedding(DEFAULT_EMBEDDING_MODELS.ollama!)
       break
     }
 
+    case 'xai': {
+      // xAI (Grok) is OpenAI-compatible
+      if (!env.XAI_API_KEY) throw new Error('XAI_API_KEY not configured')
+      const xai = createOpenAI({ baseURL: 'https://api.x.ai/v1', apiKey: env.XAI_API_KEY })
+      chatModel = xai(chatModelName)
+      embeddingModel = openAIEmbedding()
+      break
+    }
+
+    case 'cohere': {
+      // Cohere is OpenAI-compatible via /compatibility endpoint
+      if (!env.COHERE_API_KEY) throw new Error('COHERE_API_KEY not configured')
+      const cohere = createOpenAI({ baseURL: 'https://api.cohere.com/compatibility/v1', apiKey: env.COHERE_API_KEY })
+      chatModel = cohere(chatModelName)
+      embeddingModel = openAIEmbedding()
+      break
+    }
+
+    case 'deepseek': {
+      // DeepSeek is OpenAI-compatible
+      if (!env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
+      const deepseek = createOpenAI({ baseURL: 'https://api.deepseek.com/v1', apiKey: env.DEEPSEEK_API_KEY })
+      chatModel = deepseek(chatModelName)
+      embeddingModel = openAIEmbedding()
+      break
+    }
+
+    case 'together': {
+      // Together AI is OpenAI-compatible
+      if (!env.TOGETHER_API_KEY) throw new Error('TOGETHER_API_KEY not configured')
+      const together = createOpenAI({ baseURL: 'https://api.together.xyz/v1', apiKey: env.TOGETHER_API_KEY })
+      chatModel = together(chatModelName)
+      embeddingModel = openAIEmbedding()
+      break
+    }
+
+    case 'openrouter': {
+      // OpenRouter routes to 200+ models — specify model as "provider/name" (e.g. "anthropic/claude-sonnet-4-5")
+      if (!env.OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY not configured')
+      const openrouter = createOpenAI({ baseURL: 'https://openrouter.ai/api/v1', apiKey: env.OPENROUTER_API_KEY })
+      chatModel = openrouter(chatModelName)
+      embeddingModel = openAIEmbedding()
+      break
+    }
+
     default:
-      throw new Error(`Unknown provider: ${provider}`)
+      throw new Error(`Unknown provider: ${provider}. Supported: ${Object.keys(DEFAULT_MODELS).join(', ')}`)
   }
 
   return { chatModel, embeddingModel }
 }
 
+/**
+ * Build a provider with automatic fallback to the next config if the primary
+ * fails at instantiation time (e.g. missing API key). Runtime failures (network,
+ * rate limits) are handled by BullMQ retries.
+ */
+export function buildLLMProviderWithFallback(config: ProviderConfig): LLMProvider {
+  const chain = [config, ...(config.fallback ?? [])]
+  const errors: string[] = []
+
+  for (const c of chain) {
+    try {
+      return buildLLMProvider(c)
+    } catch (err) {
+      errors.push(`${c.provider}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  throw new Error(`All providers in fallback chain failed:\n${errors.map((e) => `  • ${e}`).join('\n')}`)
+}
+
 function detectDefaultProvider(): ProviderConfig {
   const env = getEnv()
 
-  // Explicit override takes highest priority
   if (env.LLM_PROVIDER) {
-    return { provider: env.LLM_PROVIDER, model: env.LLM_MODEL }
+    // Support "provider:model" string in LLM_PROVIDER env var
+    const base = parseModelString(env.LLM_PROVIDER)
+    if (env.LLM_MODEL) base.model = env.LLM_MODEL
+    return base
   }
 
   // Auto-detect from available keys (priority order)
@@ -124,9 +220,14 @@ function detectDefaultProvider(): ProviderConfig {
   if (env.GOOGLE_API_KEY) return { provider: 'google' }
   if (env.GROQ_API_KEY) return { provider: 'groq' }
   if (env.MISTRAL_API_KEY) return { provider: 'mistral' }
+  if (env.XAI_API_KEY) return { provider: 'xai' }
+  if (env.COHERE_API_KEY) return { provider: 'cohere' }
+  if (env.DEEPSEEK_API_KEY) return { provider: 'deepseek' }
+  if (env.TOGETHER_API_KEY) return { provider: 'together' }
+  if (env.OPENROUTER_API_KEY) return { provider: 'openrouter' }
   if (env.OLLAMA_BASE_URL) return { provider: 'ollama' }
 
-  throw new Error('No LLM provider configured')
+  throw new Error('No LLM provider configured. Set at least one API key in .env')
 }
 
 // Global default provider (cached)
@@ -134,10 +235,10 @@ let _defaultProvider: LLMProvider | undefined
 
 export function getLLMProvider(config?: ProviderConfig): LLMProvider {
   if (config) {
-    return buildLLMProvider(config)
+    return buildLLMProviderWithFallback(config)
   }
   if (!_defaultProvider) {
-    _defaultProvider = buildLLMProvider(detectDefaultProvider())
+    _defaultProvider = buildLLMProviderWithFallback(detectDefaultProvider())
   }
   return _defaultProvider
 }

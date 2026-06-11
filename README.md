@@ -17,7 +17,7 @@ Coworker is an open-source AI coworker for founders. It manages tasks, remembers
 - **Memory that persists** — every conversation is embedded and retrieved via pgvector. Your coworker remembers what you told it last month.
 - **Autopilot** — schedule automations (weekly briefings, Friday wrap-ups, Monday planning) that run whether or not you open the app.
 - **One command to self-host** — Postgres + Redis + 3 services via Docker Compose.
-- **Provider-agnostic** — works with Anthropic Claude, OpenAI, Google, Groq, Mistral, or local Ollama. Switch per-workspace, no redeploy needed.
+- **Provider-agnostic** — works with Anthropic, OpenAI, Google, Groq, Mistral, xAI (Grok), Cohere, DeepSeek, Together AI, OpenRouter (200+ models), or local Ollama. Switch per-workspace with a `provider:model` string — no redeploy needed.
 
 ---
 
@@ -97,7 +97,9 @@ web (Next.js 15)  ──┐
                      ├──▶  api (Hono)  ──▶  PostgreSQL + pgvector
 worker (BullMQ)  ──┘              │
     │                             └──▶  Redis (job queue + pub/sub)
-    └──▶  Vercel AI SDK (Anthropic / OpenAI)
+    └──▶  Vercel AI SDK ──▶  Anthropic · OpenAI · Google · Groq · Mistral
+                          ──▶  xAI (Grok) · Cohere · DeepSeek · Together AI
+                          ──▶  OpenRouter (200+ models) · Ollama (local)
 ```
 
 | Layer | Technology | Why |
@@ -109,6 +111,29 @@ worker (BullMQ)  ──┘              │
 | Database | PostgreSQL 16 + pgvector | Relational + semantic memory in one |
 | ORM | Drizzle | SQL-first, type-safe, migrations |
 | Auth | Magic link + JWT | No password friction |
+
+---
+
+## vs. aisuite (andrewyng/aisuite)
+
+[aisuite](https://github.com/andrewyng/aisuite) is a great Python library that gives you a unified API across LLM providers. Coworker goes several layers higher:
+
+| Capability | aisuite | Coworker |
+|---|:---:|:---:|
+| Multi-provider LLM routing | ✅ | ✅ |
+| `provider:model` string syntax | ✅ | ✅ |
+| Automatic model fallback chains | ❌ | ✅ |
+| Persistent memory (pgvector RAG) | ❌ | ✅ |
+| Task management + Kanban board | ❌ | ✅ |
+| Autopilot (cron + event triggers) | ❌ | ✅ |
+| Slack / WhatsApp / Telegram | ❌ | ✅ |
+| Multi-user workspaces + RLS | ❌ | ✅ |
+| Founder business templates | ❌ | ✅ |
+| Git + Vercel integrations | ❌ | ✅ |
+| Self-hostable (Docker Compose) | ❌ | ✅ |
+| Language | Python | TypeScript |
+
+aisuite solves routing. Coworker solves working.
 
 ---
 
