@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X, Copy, Check } from 'lucide-react'
-import { api, type Message, type WorkspaceFile } from '@/lib/api'
+import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X, Copy, Check, ChevronDown, Cpu } from 'lucide-react'
+import { api, type Message, type WorkspaceFile, type LLMProvider } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn, relativeTime } from '@/lib/utils'
@@ -11,6 +11,124 @@ import { nanoid } from 'nanoid'
 import { MarkdownContent } from '@/components/MarkdownContent'
 import { FOUNDER_TEMPLATES } from '@coworker/core'
 import type { TemplateType } from '@coworker/core'
+
+// Token cost per 1M tokens (output pricing — conservative estimate)
+const COST_PER_1M: Partial<Record<string, number>> = {
+  'claude-sonnet-4-5': 15,
+  'claude-opus-4-5': 75,
+  'claude-haiku-4-5': 1.25,
+  'claude-3-5-sonnet-20241022': 15,
+  'claude-3-5-haiku-20241022': 1.25,
+  'gpt-4o': 15,
+  'gpt-4o-mini': 0.6,
+  'gpt-4-turbo': 30,
+  'o1': 60,
+  'o3-mini': 4.4,
+  'gemini-2.0-flash': 0.7,
+  'gemini-2.0-pro': 10,
+  'gemini-1.5-pro': 10.5,
+  'gemini-1.5-flash': 0.35,
+  'llama-3.3-70b-versatile': 0.59,
+  'llama-3.1-8b-instant': 0.05,
+  'mistral-large-latest': 6,
+  'mistral-small-latest': 0.6,
+  'grok-3': 15,
+  'grok-3-mini': 0.3,
+  'command-r-plus': 2.5,
+  'command-r': 0.075,
+  'deepseek-chat': 1.1,
+  'deepseek-reasoner': 2.19,
+}
+
+const PROVIDER_LABELS: Record<LLMProvider, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  google: 'Google',
+  groq: 'Groq',
+  mistral: 'Mistral',
+  xai: 'xAI',
+  cohere: 'Cohere',
+  deepseek: 'DeepSeek',
+  together: 'Together',
+  openrouter: 'OpenRouter',
+  ollama: 'Ollama',
+}
+
+const PROVIDER_MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
+  anthropic: [
+    { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
+    { value: 'claude-opus-4-5', label: 'Claude Opus 4.5' },
+    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+  ],
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'o1', label: 'o1' },
+    { value: 'o3-mini', label: 'o3-mini' },
+  ],
+  google: [
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-2.0-pro', label: 'Gemini 2.0 Pro' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+  ],
+  groq: [
+    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+    { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B' },
+    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+    { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+  ],
+  mistral: [
+    { value: 'mistral-large-latest', label: 'Mistral Large' },
+    { value: 'mistral-small-latest', label: 'Mistral Small' },
+    { value: 'codestral-latest', label: 'Codestral' },
+    { value: 'open-mistral-nemo', label: 'Mistral Nemo' },
+  ],
+  xai: [
+    { value: 'grok-3', label: 'Grok 3' },
+    { value: 'grok-3-mini', label: 'Grok 3 Mini' },
+    { value: 'grok-2-1212', label: 'Grok 2' },
+  ],
+  cohere: [
+    { value: 'command-r-plus', label: 'Command R+' },
+    { value: 'command-r', label: 'Command R' },
+    { value: 'command-a-03-2025', label: 'Command A' },
+  ],
+  deepseek: [
+    { value: 'deepseek-chat', label: 'DeepSeek V3' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek R1' },
+  ],
+  together: [
+    { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B' },
+    { value: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo', label: 'Llama 3.1 8B' },
+    { value: 'Qwen/Qwen2.5-72B-Instruct-Turbo', label: 'Qwen 2.5 72B' },
+  ],
+  openrouter: [
+    { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
+    { value: 'openai/gpt-4o', label: 'GPT-4o' },
+    { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
+  ],
+  ollama: [
+    { value: 'llama3.2', label: 'Llama 3.2' },
+    { value: 'llama3.1', label: 'Llama 3.1' },
+    { value: 'mistral', label: 'Mistral 7B' },
+    { value: 'gemma2', label: 'Gemma 2' },
+    { value: 'qwen2.5', label: 'Qwen 2.5' },
+    { value: 'phi4', label: 'Phi-4' },
+  ],
+}
+
+function estimateCost(tokens: number, model: string): string | null {
+  const rate = COST_PER_1M[model]
+  if (!rate) return null
+  const cost = (tokens / 1_000_000) * rate
+  if (cost < 0.001) return '<$0.001'
+  return `$${cost.toFixed(4)}`
+}
 
 export default function ThreadPage() {
   const params = useParams()
@@ -32,6 +150,13 @@ export default function ThreadPage() {
   const [uploading, setUploading] = useState(false)
   const agentSlowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Model switcher state
+  const [currentProvider, setCurrentProvider] = useState<LLMProvider | null>(null)
+  const [currentModel, setCurrentModel] = useState<string | null>(null)
+  const [modelPickerOpen, setModelPickerOpen] = useState(false)
+  const [switchingModel, setSwitchingModel] = useState(false)
+  const modelPickerRef = useRef<HTMLDivElement>(null)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const socketRef = useRef<WorkspaceSocket | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -41,8 +166,21 @@ export default function ThreadPage() {
     api.workspaces.get(slug).then((ws) => {
       setWorkspaceId(ws.id)
       setTemplateType(ws.templateType as TemplateType)
+      setCurrentProvider((ws.llmProvider as LLMProvider) ?? null)
+      setCurrentModel(ws.llmModel ?? null)
     })
   }, [slug])
+
+  // Close model picker on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setModelPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   useEffect(() => {
     api.chat.messages(slug, threadId).then(setMessages).catch(() => {})
@@ -168,6 +306,18 @@ export default function ThreadPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+    }
+  }
+
+  async function handleModelSwitch(provider: LLMProvider, model: string) {
+    setSwitchingModel(true)
+    try {
+      await api.workspaces.update(slug, { llmProvider: provider, llmModel: model })
+      setCurrentProvider(provider)
+      setCurrentModel(model)
+      setModelPickerOpen(false)
+    } finally {
+      setSwitchingModel(false)
     }
   }
 
@@ -373,6 +523,79 @@ export default function ThreadPage() {
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </div>
+
+            {/* Model switcher pill */}
+            <div className="flex items-center justify-end" ref={modelPickerRef}>
+              <div className="relative">
+                <button
+                  onClick={() => setModelPickerOpen((o) => !o)}
+                  disabled={switchingModel}
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 hover:bg-muted px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {switchingModel ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Cpu className="h-3 w-3" />
+                  )}
+                  <span>
+                    {currentProvider
+                      ? `${PROVIDER_LABELS[currentProvider]} · ${currentModel ?? 'default'}`
+                      : 'Server default'}
+                  </span>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+
+                {modelPickerOpen && (
+                  <div className="absolute bottom-full mb-2 right-0 z-50 w-72 rounded-xl border border-border bg-background shadow-lg overflow-hidden">
+                    <div className="px-3 py-2 border-b border-border">
+                      <p className="text-xs font-medium text-muted-foreground">Switch model</p>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((p) => (
+                        <div key={p}>
+                          <div className="px-3 py-1.5 bg-muted/40 border-b border-border">
+                            <span className="text-xs font-medium text-muted-foreground">{PROVIDER_LABELS[p]}</span>
+                          </div>
+                          {PROVIDER_MODELS[p].map((m) => (
+                            <button
+                              key={m.value}
+                              onClick={() => handleModelSwitch(p, m.value)}
+                              className={cn(
+                                'w-full text-left px-4 py-2 text-xs hover:bg-accent transition-colors flex items-center justify-between gap-2',
+                                currentProvider === p && currentModel === m.value && 'text-primary font-medium'
+                              )}
+                            >
+                              <span>{m.label}</span>
+                              {currentProvider === p && currentModel === m.value && (
+                                <Check className="h-3 w-3 text-primary shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-3 py-2 border-t border-border">
+                      <button
+                        onClick={async () => {
+                          setSwitchingModel(true)
+                          try {
+                            await api.workspaces.update(slug, { llmProvider: null, llmModel: null })
+                            setCurrentProvider(null)
+                            setCurrentModel(null)
+                            setModelPickerOpen(false)
+                          } finally {
+                            setSwitchingModel(false)
+                          }
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Reset to server default
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -383,6 +606,11 @@ export default function ThreadPage() {
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user'
   const [copied, setCopied] = useState(false)
+
+  const meta = message.metadata as { tokensUsed?: number; model?: string; provider?: string } | null
+  const tokensUsed = meta?.tokensUsed ?? null
+  const modelUsed = meta?.model ?? null
+  const costStr = tokensUsed && modelUsed ? estimateCost(tokensUsed, modelUsed) : null
 
   async function handleCopy() {
     await navigator.clipboard.writeText(message.content)
@@ -417,8 +645,17 @@ function MessageBubble({ message }: { message: Message }) {
             <MarkdownContent content={message.content} />
           )}
         </div>
-        <div className={cn('flex items-center gap-1.5 px-1', isUser && 'flex-row-reverse')}>
+        <div className={cn('flex items-center gap-1.5 px-1 flex-wrap', isUser && 'flex-row-reverse')}>
           <p className="text-xs text-muted-foreground">{relativeTime(message.createdAt)}</p>
+          {!isUser && tokensUsed && (
+            <span className="text-xs text-muted-foreground/70 flex items-center gap-1">
+              <span>{tokensUsed.toLocaleString()} tokens</span>
+              {costStr && <span>· {costStr}</span>}
+            </span>
+          )}
+          {!isUser && modelUsed && (
+            <span className="text-xs text-muted-foreground/50">{modelUsed}</span>
+          )}
           <button
             onClick={handleCopy}
             title="Copy message"

@@ -304,7 +304,7 @@ export const api = {
 }
 
 // Shared types
-export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'groq' | 'mistral' | 'ollama'
+export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'groq' | 'mistral' | 'ollama' | 'xai' | 'cohere' | 'deepseek' | 'together' | 'openrouter'
 
 export interface Workspace {
   id: string

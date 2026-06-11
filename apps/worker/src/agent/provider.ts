@@ -204,6 +204,23 @@ export function buildLLMProviderWithFallback(config: ProviderConfig): LLMProvide
   throw new Error(`All providers in fallback chain failed:\n${errors.map((e) => `  • ${e}`).join('\n')}`)
 }
 
+export function detectDefaultProviderName(): ProviderName | undefined {
+  const env = getEnv()
+  if (env.LLM_PROVIDER) return parseModelString(env.LLM_PROVIDER).provider
+  if (env.ANTHROPIC_API_KEY) return 'anthropic'
+  if (env.OPENAI_API_KEY) return 'openai'
+  if (env.GOOGLE_API_KEY) return 'google'
+  if (env.GROQ_API_KEY) return 'groq'
+  if (env.MISTRAL_API_KEY) return 'mistral'
+  if (env.XAI_API_KEY) return 'xai'
+  if (env.COHERE_API_KEY) return 'cohere'
+  if (env.DEEPSEEK_API_KEY) return 'deepseek'
+  if (env.TOGETHER_API_KEY) return 'together'
+  if (env.OPENROUTER_API_KEY) return 'openrouter'
+  if (env.OLLAMA_BASE_URL) return 'ollama'
+  return undefined
+}
+
 function detectDefaultProvider(): ProviderConfig {
   const env = getEnv()
 

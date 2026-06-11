@@ -4,7 +4,7 @@ import { messages, agentRuns, skills, tasks, workspaces, files } from '@coworker
 import type { DbClient } from '@coworker/db'
 import { withWorkspace } from '@coworker/db'
 import type { Redis } from 'ioredis'
-import { getLLMProvider } from './provider.js'
+import { getLLMProvider, DEFAULT_MODELS, detectDefaultProviderName } from './provider.js'
 import { buildSystemPrompt } from './prompt.js'
 import { retrieveRelevantMemories, saveMemory } from './memory.js'
 import { createTaskTool } from './tools/create-task.js'
@@ -170,7 +170,13 @@ export async function executeAgentRun(
     const tokensUsed = result.usage.totalTokens
     const durationMs = Date.now() - startedAt.getTime()
 
-    // Save assistant message
+    const providerConfig = workspace.llmProvider
+      ? { provider: workspace.llmProvider as import('./provider.js').ProviderName, model: workspace.llmModel ?? undefined }
+      : undefined
+    const resolvedProvider = providerConfig?.provider ?? (detectDefaultProviderName() ?? 'unknown')
+    const resolvedModel = providerConfig?.model ?? DEFAULT_MODELS[resolvedProvider as import('./provider.js').ProviderName] ?? 'unknown'
+
+    // Save assistant message with token + model metadata for UI display
     const [assistantMessage] = await withWorkspace(db, workspaceId, async (tx) =>
       tx
         .insert(messages)
@@ -181,6 +187,11 @@ export async function executeAgentRun(
           threadId,
           agentRunId,
           toolCalls: result.toolCalls.length > 0 ? (result.toolCalls as any) : null,
+          metadata: {
+            tokensUsed,
+            provider: resolvedProvider,
+            model: resolvedModel,
+          },
         })
         .returning()
     )

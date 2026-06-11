@@ -370,6 +370,11 @@ const PROVIDER_LABELS: Record<LLMProvider, string> = {
   google: 'Google',
   groq: 'Groq',
   mistral: 'Mistral',
+  xai: 'xAI (Grok)',
+  cohere: 'Cohere',
+  deepseek: 'DeepSeek',
+  together: 'Together AI',
+  openrouter: 'OpenRouter',
   ollama: 'Ollama (local)',
 }
 
@@ -405,6 +410,32 @@ const PROVIDER_MODELS: Record<LLMProvider, { value: string; label: string }[]> =
     { value: 'mistral-small-latest', label: 'Mistral Small' },
     { value: 'codestral-latest', label: 'Codestral' },
     { value: 'open-mistral-nemo', label: 'Mistral Nemo (open)' },
+  ],
+  xai: [
+    { value: 'grok-3', label: 'Grok 3' },
+    { value: 'grok-3-mini', label: 'Grok 3 Mini' },
+    { value: 'grok-2-1212', label: 'Grok 2' },
+  ],
+  cohere: [
+    { value: 'command-r-plus', label: 'Command R+' },
+    { value: 'command-r', label: 'Command R' },
+    { value: 'command-a-03-2025', label: 'Command A' },
+  ],
+  deepseek: [
+    { value: 'deepseek-chat', label: 'DeepSeek V3' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek R1 (reasoner)' },
+  ],
+  together: [
+    { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B Turbo' },
+    { value: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo', label: 'Llama 3.1 8B Turbo' },
+    { value: 'mistralai/Mixtral-8x7B-Instruct-v0.1', label: 'Mixtral 8x7B' },
+    { value: 'Qwen/Qwen2.5-72B-Instruct-Turbo', label: 'Qwen 2.5 72B Turbo' },
+  ],
+  openrouter: [
+    { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (via OpenRouter)' },
+    { value: 'openai/gpt-4o', label: 'GPT-4o (via OpenRouter)' },
+    { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash (via OpenRouter)' },
+    { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B (via OpenRouter)' },
   ],
   ollama: [
     { value: 'llama3.2', label: 'Llama 3.2' },
