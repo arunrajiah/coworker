@@ -16,6 +16,7 @@ import { webhookRoutes } from './routes/webhook.js'
 import { vercelRoutes } from './routes/vercel.js'
 import { providerRoutes } from './routes/providers.js'
 import { memoryRoutes } from './routes/memories.js'
+import { linearRoutes } from './routes/linear.js'
 import { createWebSocketServer } from './ws/gateway.js'
 
 const env = getEnv()
@@ -47,6 +48,7 @@ app.route('/api/workspaces/:workspaceSlug/git', gitRoutes)
 app.route('/api/workspaces/:workspaceSlug/vercel', vercelRoutes)
 app.route('/api/providers', providerRoutes)
 app.route('/api/workspaces/:workspaceSlug/memories', memoryRoutes)
+app.route('/api/workspaces/:workspaceSlug/linear', linearRoutes)
 app.route('/webhooks', webhookRoutes)
 
 // Static file serving for uploads (local storage)

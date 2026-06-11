@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu, GitBranch, Copy, RefreshCw, Unplug, RotateCcw, Triangle, ExternalLink } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation } from '@/lib/api'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation, type LinearConnection } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ const SETTINGS_TABS = [
   { id: 'ai', label: 'AI Model' },
   { id: 'git', label: 'Git' },
   { id: 'vercel', label: 'Vercel' },
+  { id: 'linear', label: 'Linear' },
   { id: 'telegram', label: 'Telegram' },
   { id: 'slack', label: 'Slack' },
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -60,6 +61,7 @@ export default function SettingsPage() {
           {activeTab === 'ai' && <ModelSection slug={slug} />}
           {activeTab === 'git' && <GitSection slug={slug} />}
           {activeTab === 'vercel' && <VercelSection slug={slug} />}
+          {activeTab === 'linear' && <LinearSection slug={slug} />}
           {activeTab === 'telegram' && <TelegramSection slug={slug} />}
           {activeTab === 'slack' && <SlackSection slug={slug} />}
           {activeTab === 'whatsapp' && <WhatsAppSection slug={slug} />}
@@ -1918,4 +1920,130 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function LinearSection({ slug }: { slug: string }) {
+  const [connections, setConnections] = useState<LinearConnection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [apiKey, setApiKey] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [testing, setTesting] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; viewer?: { name: string; email: string } }>>({})
+
+  useEffect(() => {
+    api.linear.list(slug).then(setConnections).finally(() => setLoading(false))
+  }, [slug])
+
+  const handleConnect = async () => {
+    if (!apiKey.trim()) return
+    setConnecting(true)
+    setError(null)
+    try {
+      const conn = await api.linear.connect(slug, apiKey.trim())
+      setConnections((prev) => [...prev.filter((c) => c.teamId !== conn.teamId), conn])
+      setApiKey('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  const handleTest = async (id: string) => {
+    setTesting(id)
+    try {
+      const result = await api.linear.test(slug, id)
+      setTestResult((prev) => ({ ...prev, [id]: result }))
+    } finally {
+      setTesting(null)
+    }
+  }
+
+  const handleDisconnect = async (id: string) => {
+    await api.linear.disconnect(slug, id)
+    setConnections((prev) => prev.filter((c) => c.id !== id))
+    setTestResult((prev) => { const n = { ...prev }; delete n[id]; return n })
+  }
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold">Linear</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Connect your Linear workspace so the agent can list, create, and update issues.
+        </p>
+      </div>
+
+      {/* Connect form */}
+      <div className="space-y-3">
+        <label className="text-sm font-medium">API Key</label>
+        <p className="text-xs text-muted-foreground">
+          Create a Personal API Key in Linear → Settings → API.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            placeholder="lin_api_..."
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
+            className="flex-1 px-3 py-2 text-sm border rounded-md bg-background"
+          />
+          <button
+            onClick={handleConnect}
+            disabled={connecting || !apiKey.trim()}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
+          </button>
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+
+      {/* Connected workspaces */}
+      <div className="space-y-2">
+        {loading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        ) : connections.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Linear connections yet.</p>
+        ) : (
+          connections.map((conn) => (
+            <div key={conn.id} className="flex items-center justify-between p-3 border rounded-lg bg-card">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <div>
+                  <p className="text-sm font-medium">{conn.teamName}</p>
+                  {testResult[conn.id] && (
+                    <p className="text-xs text-muted-foreground">
+                      {testResult[conn.id].ok
+                        ? `Connected as ${testResult[conn.id].viewer?.name}`
+                        : 'Connection failed'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleTest(conn.id)}
+                  disabled={testing === conn.id}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border"
+                >
+                  {testing === conn.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
+                </button>
+                <button
+                  onClick={() => handleDisconnect(conn.id)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Unplug className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
 }

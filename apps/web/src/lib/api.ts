@@ -319,6 +319,22 @@ export const api = {
     deleteAll: (slug: string) =>
       apiRequest(`/api/workspaces/${slug}/memories`, { method: 'DELETE' }),
   },
+
+  linear: {
+    list: (slug: string) =>
+      apiRequest<LinearConnection[]>(`/api/workspaces/${slug}/linear`),
+    connect: (slug: string, apiKey: string) =>
+      apiRequest<LinearConnection>(`/api/workspaces/${slug}/linear`, {
+        method: 'POST',
+        body: JSON.stringify({ apiKey }),
+      }),
+    test: (slug: string, id: string) =>
+      apiRequest<{ ok: boolean; viewer?: { name: string; email: string }; teamName?: string; error?: string }>(
+        `/api/workspaces/${slug}/linear/${id}/test`
+      ),
+    disconnect: (slug: string, id: string) =>
+      apiRequest(`/api/workspaces/${slug}/linear/${id}`, { method: 'DELETE' }),
+  },
 }
 
 // Shared types
@@ -482,6 +498,15 @@ export interface VercelDeployment {
   state: 'BUILDING' | 'ERROR' | 'INITIALIZING' | 'QUEUED' | 'READY' | 'CANCELED'
   createdAt: number
   target: 'production' | 'staging' | null
+}
+
+export interface LinearConnection {
+  id: string
+  workspaceId: string
+  teamId: string
+  teamName: string
+  connectedBy: string
+  connectedAt: string
 }
 
 export interface Memory {

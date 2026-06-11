@@ -7,6 +7,7 @@ export * from './platform/slack'
 export * from './platform/whatsapp'
 export * from './platform/git'
 export * from './platform/vercel'
+export * from './platform/linear'
 
 // Tenant schema
 export * from './tenant/tasks'

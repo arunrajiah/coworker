@@ -15,6 +15,7 @@ import { readFileTool } from './tools/read-file.js'
 import { planWorkTool } from './tools/plan-work.js'
 import { listIssuesTool, createIssueTool, updateIssueTool, listPRsTool, listGitConnectionsTool } from './tools/git-issues.js'
 import { listVercelConnectionsTool, listDeploymentsTool, triggerDeploymentTool, getDeploymentStatusTool } from './tools/vercel.js'
+import { listLinearConnectionsTool, listLinearIssuesTool, createLinearIssueTool, updateLinearIssueTool, searchLinearIssuesTool } from './tools/linear.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -144,6 +145,11 @@ export async function executeAgentRun(
       list_deployments: listDeploymentsTool(db, workspaceId),
       trigger_deployment: triggerDeploymentTool(db, workspaceId),
       get_deployment_status: getDeploymentStatusTool(db, workspaceId),
+      list_linear_connections: listLinearConnectionsTool(db, workspaceId),
+      list_linear_issues: listLinearIssuesTool(db, workspaceId),
+      create_linear_issue: createLinearIssueTool(db, workspaceId),
+      update_linear_issue: updateLinearIssueTool(db, workspaceId),
+      search_linear_issues: searchLinearIssuesTool(db, workspaceId),
     }
 
     const result = await generateText({
