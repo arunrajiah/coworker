@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X, Copy, Check, ChevronDown, Cpu } from 'lucide-react'
+import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X, Copy, Check, ChevronDown, Cpu, FolderOpen } from 'lucide-react'
 import { api, type Message, type WorkspaceFile, type LLMProvider } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
@@ -148,6 +148,10 @@ export default function ThreadPage() {
   const [templateType, setTemplateType] = useState<TemplateType>('general')
   const [attachedFiles, setAttachedFiles] = useState<WorkspaceFile[]>([])
   const [uploading, setUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [browseOpen, setBrowseOpen] = useState(false)
+  const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([])
+  const [loadingWorkspaceFiles, setLoadingWorkspaceFiles] = useState(false)
   const agentSlowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Model switcher state
@@ -249,19 +253,67 @@ export default function ThreadPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, agentThinking])
 
-  async function handleAttach(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const uploadFiles = useCallback(async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList)
+    if (files.length === 0) return
     setUploading(true)
     try {
-      const uploaded = await api.integrations.uploadFile(slug, file)
-      setAttachedFiles((prev) => [...prev, uploaded])
+      const uploaded = await Promise.all(files.map((f) => api.integrations.uploadFile(slug, f)))
+      setAttachedFiles((prev) => {
+        const existingIds = new Set(prev.map((f) => f.id))
+        return [...prev, ...uploaded.filter((f) => !existingIds.has(f.id))]
+      })
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }, [slug])
+
+  async function handleAttach(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files) await uploadFiles(e.target.files)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false)
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragging(false)
+    if (e.dataTransfer.files.length > 0) await uploadFiles(e.dataTransfer.files)
+  }
+
+  async function handlePaste(e: React.ClipboardEvent) {
+    const files = Array.from(e.clipboardData.files)
+    if (files.length > 0) {
+      e.preventDefault()
+      await uploadFiles(files)
+    }
+  }
+
+  async function handleOpenBrowse() {
+    setBrowseOpen(true)
+    if (workspaceFiles.length === 0) {
+      setLoadingWorkspaceFiles(true)
+      try {
+        const files = await api.integrations.listFiles(slug)
+        setWorkspaceFiles(files)
+      } finally {
+        setLoadingWorkspaceFiles(false)
+      }
+    }
+  }
+
+  function handleAttachExisting(file: WorkspaceFile) {
+    setAttachedFiles((prev) => prev.find((f) => f.id === file.id) ? prev : [...prev, file])
+    setBrowseOpen(false)
   }
 
   async function handleSend() {
@@ -481,7 +533,52 @@ export default function ThreadPage() {
               </div>
             )}
 
-            <div className="flex items-end gap-2">
+            {/* Browse existing files panel */}
+            {browseOpen && (
+              <div className="rounded-xl border border-border bg-background shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">Attach from workspace files</span>
+                  <button onClick={() => setBrowseOpen(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {loadingWorkspaceFiles ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : workspaceFiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">No files uploaded yet</p>
+                  ) : (
+                    workspaceFiles.map((f) => {
+                      const alreadyAttached = attachedFiles.some((a) => a.id === f.id)
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => handleAttachExisting(f)}
+                          disabled={alreadyAttached}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-accent disabled:opacity-40 transition-colors"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs flex-1 truncate">{f.name}</span>
+                          {alreadyAttached && <span className="text-xs text-muted-foreground">attached</span>}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div
+              className={cn(
+                'flex items-end gap-2 rounded-2xl transition-colors',
+                isDragging && 'outline outline-2 outline-primary outline-offset-2 bg-primary/5'
+              )}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               {/* File attach button */}
               <label className={cn(
                 'h-11 w-11 rounded-2xl border border-input flex items-center justify-center cursor-pointer hover:bg-accent transition-colors shrink-0',
@@ -495,18 +592,30 @@ export default function ThreadPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   className="hidden"
                   accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp"
                   onChange={handleAttach}
                 />
               </label>
 
+              {/* Browse existing files button */}
+              <button
+                type="button"
+                onClick={handleOpenBrowse}
+                className="h-11 w-11 rounded-2xl border border-input flex items-center justify-center hover:bg-accent transition-colors shrink-0"
+                title="Attach from workspace files"
+              >
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+              </button>
+
               <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Message your coworker…"
+                onPaste={handlePaste}
+                placeholder={isDragging ? 'Drop files to attach…' : 'Message your coworker…'}
                 rows={1}
                 className="flex-1 resize-none rounded-2xl border border-input bg-muted/50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:bg-background min-h-[44px] max-h-[160px] transition-colors"
                 onInput={(e) => {
