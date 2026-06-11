@@ -306,6 +306,19 @@ export const api = {
     health: () =>
       apiRequest<{ configured: Record<string, boolean> }>('/api/providers/health'),
   },
+
+  memories: {
+    list: (slug: string, opts?: { limit?: number; offset?: number }) => {
+      const params = new URLSearchParams()
+      if (opts?.limit) params.set('limit', String(opts.limit))
+      if (opts?.offset) params.set('offset', String(opts.offset))
+      return apiRequest<Memory[]>(`/api/workspaces/${slug}/memories?${params}`)
+    },
+    delete: (slug: string, id: string) =>
+      apiRequest(`/api/workspaces/${slug}/memories/${id}`, { method: 'DELETE' }),
+    deleteAll: (slug: string) =>
+      apiRequest(`/api/workspaces/${slug}/memories`, { method: 'DELETE' }),
+  },
 }
 
 // Shared types
@@ -469,6 +482,15 @@ export interface VercelDeployment {
   state: 'BUILDING' | 'ERROR' | 'INITIALIZING' | 'QUEUED' | 'READY' | 'CANCELED'
   createdAt: number
   target: 'production' | 'staging' | null
+}
+
+export interface Memory {
+  id: string
+  content: string
+  sourceType: string
+  sourceId: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
 }
 
 export interface AgentRun {

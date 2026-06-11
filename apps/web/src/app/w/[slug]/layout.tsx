@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useParams, useRouter } from 'next/navigation'
-import { MessageSquare, CheckSquare, Moon, Settings, LogOut, ChevronDown, Kanban, LayoutDashboard, Sparkles, Sun } from 'lucide-react'
+import { MessageSquare, CheckSquare, Moon, Settings, LogOut, ChevronDown, Kanban, LayoutDashboard, Sparkles, Sun, Brain } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth'
 import { api } from '@/lib/api'
@@ -30,6 +30,7 @@ const navItems = [
   { href: 'chat', label: 'Chat', icon: MessageSquare },
   { href: 'tasks', label: 'Tasks', icon: CheckSquare },
   { href: 'autopilot', label: 'Autopilot', icon: Moon },
+  { href: 'memory', label: 'Memory', icon: Brain },
   { href: 'skills', label: 'Skills', icon: Sparkles },
   { href: 'settings', label: 'Settings', icon: Settings },
 ]
