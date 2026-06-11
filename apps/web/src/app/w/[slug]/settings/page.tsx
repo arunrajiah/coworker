@@ -453,6 +453,7 @@ function ModelSection({ slug }: { slug: string }) {
   const [model, setModel] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [providerHealth, setProviderHealth] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     api.workspaces.get(slug).then((ws) => {
@@ -460,6 +461,7 @@ function ModelSection({ slug }: { slug: string }) {
       setProvider(ws.llmProvider ?? '')
       setModel(ws.llmModel ?? '')
     })
+    api.providers.health().then((res) => setProviderHealth(res.configured)).catch(() => {})
   }, [slug])
 
   async function handleSave(e: React.FormEvent) {
@@ -507,9 +509,14 @@ function ModelSection({ slug }: { slug: string }) {
             >
               <option value="">Server default</option>
               {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((p) => (
-                <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
+                <option key={p} value={p}>
+                  {providerHealth[p] === true ? '● ' : providerHealth[p] === false ? '○ ' : ''}{PROVIDER_LABELS[p]}
+                </option>
               ))}
             </select>
+            {Object.keys(providerHealth).length > 0 && (
+              <p className="text-xs text-muted-foreground">● configured &nbsp; ○ key not set</p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -563,6 +570,22 @@ function ModelSection({ slug }: { slug: string }) {
           )}
         </div>
       </form>
+
+      {Object.keys(providerHealth).length > 0 && (
+        <div className="mt-4 rounded-md border border-border p-3 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Provider key status</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((p) => (
+              <div key={p} className="flex items-center gap-2 text-sm">
+                <span className={cn('h-2 w-2 rounded-full shrink-0', providerHealth[p] ? 'bg-green-500' : 'bg-muted-foreground/30')} />
+                <span className={providerHealth[p] ? 'text-foreground' : 'text-muted-foreground'}>
+                  {PROVIDER_LABELS[p]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

@@ -301,6 +301,11 @@ export const api = {
     deleteThread: (slug: string, threadId: string) =>
       apiRequest(`/api/workspaces/${slug}/chat/threads/${threadId}`, { method: 'DELETE' }),
   },
+
+  providers: {
+    health: () =>
+      apiRequest<{ configured: Record<string, boolean> }>('/api/providers/health'),
+  },
 }
 
 // Shared types

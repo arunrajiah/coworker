@@ -23,6 +23,11 @@ export const llmProviderEnum = pgEnum('llm_provider', [
   'groq',
   'mistral',
   'ollama',
+  'xai',
+  'cohere',
+  'deepseek',
+  'together',
+  'openrouter',
 ])
 
 export const workspaces = platformSchema.table('workspaces', {

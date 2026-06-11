@@ -123,7 +123,7 @@ workspaceRoutes.patch(
     z.object({
       name: z.string().min(2).max(64).optional(),
       llmProvider: z
-        .enum(['anthropic', 'openai', 'google', 'groq', 'mistral', 'ollama'])
+        .enum(['anthropic', 'openai', 'google', 'groq', 'mistral', 'ollama', 'xai', 'cohere', 'deepseek', 'together', 'openrouter'])
         .nullable()
         .optional(),
       llmModel: z.string().max(128).nullable().optional(),
