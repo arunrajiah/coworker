@@ -16,6 +16,7 @@ import { planWorkTool } from './tools/plan-work.js'
 import { listIssuesTool, createIssueTool, updateIssueTool, listPRsTool, listGitConnectionsTool } from './tools/git-issues.js'
 import { listVercelConnectionsTool, listDeploymentsTool, triggerDeploymentTool, getDeploymentStatusTool } from './tools/vercel.js'
 import { listLinearConnectionsTool, listLinearIssuesTool, createLinearIssueTool, updateLinearIssueTool, searchLinearIssuesTool } from './tools/linear.js'
+import { listNotionConnectionsTool, searchNotionTool, readNotionPageTool, createNotionPageTool, appendNotionPageTool, queryNotionDatabaseTool } from './tools/notion.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -150,6 +151,12 @@ export async function executeAgentRun(
       create_linear_issue: createLinearIssueTool(db, workspaceId),
       update_linear_issue: updateLinearIssueTool(db, workspaceId),
       search_linear_issues: searchLinearIssuesTool(db, workspaceId),
+      list_notion_connections: listNotionConnectionsTool(db, workspaceId),
+      search_notion: searchNotionTool(db, workspaceId),
+      read_notion_page: readNotionPageTool(db, workspaceId),
+      create_notion_page: createNotionPageTool(db, workspaceId),
+      append_notion_page: appendNotionPageTool(db, workspaceId),
+      query_notion_database: queryNotionDatabaseTool(db, workspaceId),
     }
 
     const result = await generateText({

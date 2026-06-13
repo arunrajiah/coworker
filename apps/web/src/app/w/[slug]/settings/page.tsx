@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu, GitBranch, Copy, RefreshCw, Unplug, RotateCcw, Triangle, ExternalLink } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation, type LinearConnection } from '@/lib/api'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation, type LinearConnection, type NotionConnection } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,7 @@ const SETTINGS_TABS = [
   { id: 'git', label: 'Git' },
   { id: 'vercel', label: 'Vercel' },
   { id: 'linear', label: 'Linear' },
+  { id: 'notion', label: 'Notion' },
   { id: 'telegram', label: 'Telegram' },
   { id: 'slack', label: 'Slack' },
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -62,6 +63,7 @@ export default function SettingsPage() {
           {activeTab === 'git' && <GitSection slug={slug} />}
           {activeTab === 'vercel' && <VercelSection slug={slug} />}
           {activeTab === 'linear' && <LinearSection slug={slug} />}
+          {activeTab === 'notion' && <NotionSection slug={slug} />}
           {activeTab === 'telegram' && <TelegramSection slug={slug} />}
           {activeTab === 'slack' && <SlackSection slug={slug} />}
           {activeTab === 'whatsapp' && <WhatsAppSection slug={slug} />}
@@ -2020,6 +2022,130 @@ function LinearSection({ slug }: { slug: string }) {
                     <p className="text-xs text-muted-foreground">
                       {testResult[conn.id].ok
                         ? `Connected as ${testResult[conn.id].viewer?.name}`
+                        : 'Connection failed'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleTest(conn.id)}
+                  disabled={testing === conn.id}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border"
+                >
+                  {testing === conn.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
+                </button>
+                <button
+                  onClick={() => handleDisconnect(conn.id)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Unplug className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
+
+function NotionSection({ slug }: { slug: string }) {
+  const [connections, setConnections] = useState<NotionConnection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [token, setToken] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [testing, setTesting] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; botName?: string }>>({})
+
+  useEffect(() => {
+    api.notion.list(slug).then(setConnections).finally(() => setLoading(false))
+  }, [slug])
+
+  const handleConnect = async () => {
+    if (!token.trim()) return
+    setConnecting(true)
+    setError(null)
+    try {
+      const conn = await api.notion.connect(slug, token.trim())
+      setConnections((prev) => [...prev.filter((c) => c.notionWorkspaceId !== conn.notionWorkspaceId), conn])
+      setToken('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  const handleTest = async (id: string) => {
+    setTesting(id)
+    try {
+      const result = await api.notion.test(slug, id)
+      setTestResult((prev) => ({ ...prev, [id]: result }))
+    } finally {
+      setTesting(null)
+    }
+  }
+
+  const handleDisconnect = async (id: string) => {
+    await api.notion.disconnect(slug, id)
+    setConnections((prev) => prev.filter((c) => c.id !== id))
+    setTestResult((prev) => { const n = { ...prev }; delete n[id]; return n })
+  }
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold">Notion</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Connect your Notion workspace so the agent can search pages, read docs, create pages, and query databases.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-sm font-medium">Internal Integration Token</label>
+        <p className="text-xs text-muted-foreground">
+          Go to <span className="font-mono">notion.so/my-integrations</span>, create an integration, copy the Internal Integration Token, then share any pages you want accessible with that integration.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            placeholder="secret_..."
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
+            className="flex-1 px-3 py-2 text-sm border rounded-md bg-background"
+          />
+          <button
+            onClick={handleConnect}
+            disabled={connecting || !token.trim()}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
+          </button>
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+
+      <div className="space-y-2">
+        {loading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        ) : connections.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Notion connections yet.</p>
+        ) : (
+          connections.map((conn) => (
+            <div key={conn.id} className="flex items-center justify-between p-3 border rounded-lg bg-card">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <div>
+                  <p className="text-sm font-medium">{conn.notionWorkspaceName}</p>
+                  {testResult[conn.id] && (
+                    <p className="text-xs text-muted-foreground">
+                      {testResult[conn.id].ok
+                        ? `Connected as ${testResult[conn.id].botName ?? 'integration'}`
                         : 'Connection failed'}
                     </p>
                   )}

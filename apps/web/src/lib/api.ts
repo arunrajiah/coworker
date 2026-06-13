@@ -335,6 +335,22 @@ export const api = {
     disconnect: (slug: string, id: string) =>
       apiRequest(`/api/workspaces/${slug}/linear/${id}`, { method: 'DELETE' }),
   },
+
+  notion: {
+    list: (slug: string) =>
+      apiRequest<NotionConnection[]>(`/api/workspaces/${slug}/notion`),
+    connect: (slug: string, token: string) =>
+      apiRequest<NotionConnection>(`/api/workspaces/${slug}/notion`, {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }),
+    test: (slug: string, id: string) =>
+      apiRequest<{ ok: boolean; workspaceName?: string; botName?: string; error?: string }>(
+        `/api/workspaces/${slug}/notion/${id}/test`
+      ),
+    disconnect: (slug: string, id: string) =>
+      apiRequest(`/api/workspaces/${slug}/notion/${id}`, { method: 'DELETE' }),
+  },
 }
 
 // Shared types
@@ -498,6 +514,16 @@ export interface VercelDeployment {
   state: 'BUILDING' | 'ERROR' | 'INITIALIZING' | 'QUEUED' | 'READY' | 'CANCELED'
   createdAt: number
   target: 'production' | 'staging' | null
+}
+
+export interface NotionConnection {
+  id: string
+  workspaceId: string
+  notionWorkspaceId: string
+  notionWorkspaceName: string
+  botId: string
+  connectedBy: string
+  connectedAt: string
 }
 
 export interface LinearConnection {

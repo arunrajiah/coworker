@@ -8,6 +8,7 @@ export * from './platform/whatsapp'
 export * from './platform/git'
 export * from './platform/vercel'
 export * from './platform/linear'
+export * from './platform/notion'
 
 // Tenant schema
 export * from './tenant/tasks'
