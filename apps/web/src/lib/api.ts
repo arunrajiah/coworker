@@ -351,6 +351,22 @@ export const api = {
     disconnect: (slug: string, id: string) =>
       apiRequest(`/api/workspaces/${slug}/notion/${id}`, { method: 'DELETE' }),
   },
+
+  gcal: {
+    list: (slug: string) =>
+      apiRequest<GcalConnection[]>(`/api/workspaces/${slug}/gcal`),
+    connect: (slug: string, clientId: string, clientSecret: string, refreshToken: string) =>
+      apiRequest<GcalConnection>(`/api/workspaces/${slug}/gcal`, {
+        method: 'POST',
+        body: JSON.stringify({ clientId, clientSecret, refreshToken }),
+      }),
+    test: (slug: string, id: string) =>
+      apiRequest<{ ok: boolean; email?: string; calendars?: string[]; error?: string }>(
+        `/api/workspaces/${slug}/gcal/${id}/test`
+      ),
+    disconnect: (slug: string, id: string) =>
+      apiRequest(`/api/workspaces/${slug}/gcal/${id}`, { method: 'DELETE' }),
+  },
 }
 
 // Shared types
@@ -514,6 +530,15 @@ export interface VercelDeployment {
   state: 'BUILDING' | 'ERROR' | 'INITIALIZING' | 'QUEUED' | 'READY' | 'CANCELED'
   createdAt: number
   target: 'production' | 'staging' | null
+}
+
+export interface GcalConnection {
+  id: string
+  workspaceId: string
+  googleEmail: string
+  clientId: string
+  connectedBy: string
+  connectedAt: string
 }
 
 export interface NotionConnection {

@@ -18,6 +18,7 @@ import { providerRoutes } from './routes/providers.js'
 import { memoryRoutes } from './routes/memories.js'
 import { linearRoutes } from './routes/linear.js'
 import { notionRoutes } from './routes/notion.js'
+import { gcalRoutes } from './routes/gcal.js'
 import { createWebSocketServer } from './ws/gateway.js'
 
 const env = getEnv()
@@ -51,6 +52,7 @@ app.route('/api/providers', providerRoutes)
 app.route('/api/workspaces/:workspaceSlug/memories', memoryRoutes)
 app.route('/api/workspaces/:workspaceSlug/linear', linearRoutes)
 app.route('/api/workspaces/:workspaceSlug/notion', notionRoutes)
+app.route('/api/workspaces/:workspaceSlug/gcal', gcalRoutes)
 app.route('/webhooks', webhookRoutes)
 
 // Static file serving for uploads (local storage)

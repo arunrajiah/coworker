@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu, GitBranch, Copy, RefreshCw, Unplug, RotateCcw, Triangle, ExternalLink } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation, type LinearConnection, type NotionConnection } from '@/lib/api'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation, type LinearConnection, type NotionConnection, type GcalConnection } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn } from '@/lib/utils'
@@ -16,6 +16,7 @@ const SETTINGS_TABS = [
   { id: 'vercel', label: 'Vercel' },
   { id: 'linear', label: 'Linear' },
   { id: 'notion', label: 'Notion' },
+  { id: 'gcal', label: 'Google Calendar' },
   { id: 'telegram', label: 'Telegram' },
   { id: 'slack', label: 'Slack' },
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -64,6 +65,7 @@ export default function SettingsPage() {
           {activeTab === 'vercel' && <VercelSection slug={slug} />}
           {activeTab === 'linear' && <LinearSection slug={slug} />}
           {activeTab === 'notion' && <NotionSection slug={slug} />}
+          {activeTab === 'gcal' && <GcalSection slug={slug} />}
           {activeTab === 'telegram' && <TelegramSection slug={slug} />}
           {activeTab === 'slack' && <SlackSection slug={slug} />}
           {activeTab === 'whatsapp' && <WhatsAppSection slug={slug} />}
@@ -2146,6 +2148,159 @@ function NotionSection({ slug }: { slug: string }) {
                     <p className="text-xs text-muted-foreground">
                       {testResult[conn.id].ok
                         ? `Connected as ${testResult[conn.id].botName ?? 'integration'}`
+                        : 'Connection failed'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleTest(conn.id)}
+                  disabled={testing === conn.id}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border"
+                >
+                  {testing === conn.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
+                </button>
+                <button
+                  onClick={() => handleDisconnect(conn.id)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Unplug className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
+
+function GcalSection({ slug }: { slug: string }) {
+  const [connections, setConnections] = useState<GcalConnection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [clientId, setClientId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [refreshToken, setRefreshToken] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [testing, setTesting] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; email?: string; calendars?: string[] }>>({})
+
+  useEffect(() => {
+    api.gcal.list(slug).then(setConnections).finally(() => setLoading(false))
+  }, [slug])
+
+  const handleConnect = async () => {
+    if (!clientId.trim() || !clientSecret.trim() || !refreshToken.trim()) return
+    setConnecting(true)
+    setError(null)
+    try {
+      const conn = await api.gcal.connect(slug, clientId.trim(), clientSecret.trim(), refreshToken.trim())
+      setConnections((prev) => [...prev.filter((c) => c.googleEmail !== conn.googleEmail), conn])
+      setClientId('')
+      setClientSecret('')
+      setRefreshToken('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  const handleTest = async (id: string) => {
+    setTesting(id)
+    try {
+      const result = await api.gcal.test(slug, id)
+      setTestResult((prev) => ({ ...prev, [id]: result }))
+    } finally {
+      setTesting(null)
+    }
+  }
+
+  const handleDisconnect = async (id: string) => {
+    await api.gcal.disconnect(slug, id)
+    setConnections((prev) => prev.filter((c) => c.id !== id))
+    setTestResult((prev) => { const n = { ...prev }; delete n[id]; return n })
+  }
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold">Google Calendar</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Connect Google Calendar so the agent can list events, create meetings, check availability, and manage your schedule.
+        </p>
+      </div>
+
+      <div className="rounded-lg border bg-muted/30 p-4 text-xs text-muted-foreground space-y-1">
+        <p className="font-medium text-foreground">Setup steps</p>
+        <ol className="list-decimal list-inside space-y-1">
+          <li>Create a project in <span className="font-mono">console.cloud.google.com</span> and enable the Google Calendar API.</li>
+          <li>Create OAuth 2.0 credentials (Desktop app). Copy the Client ID and Client Secret.</li>
+          <li>Go to <span className="font-mono">developers.google.com/oauthplayground</span>, use your own credentials, select the <span className="font-mono">https://www.googleapis.com/auth/calendar</span> scope, and exchange the auth code for a Refresh Token.</li>
+        </ol>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="text-sm font-medium">Client ID</label>
+          <input
+            type="text"
+            placeholder="...apps.googleusercontent.com"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            className="mt-1 w-full px-3 py-2 text-sm border rounded-md bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Client Secret</label>
+          <input
+            type="password"
+            placeholder="GOCSPX-..."
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            className="mt-1 w-full px-3 py-2 text-sm border rounded-md bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Refresh Token</label>
+          <input
+            type="password"
+            placeholder="1//0g..."
+            value={refreshToken}
+            onChange={(e) => setRefreshToken(e.target.value)}
+            className="mt-1 w-full px-3 py-2 text-sm border rounded-md bg-background"
+          />
+        </div>
+        <button
+          onClick={handleConnect}
+          disabled={connecting || !clientId.trim() || !clientSecret.trim() || !refreshToken.trim()}
+          className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
+        </button>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+
+      <div className="space-y-2">
+        {loading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        ) : connections.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Google Calendar connections yet.</p>
+        ) : (
+          connections.map((conn) => (
+            <div key={conn.id} className="flex items-center justify-between p-3 border rounded-lg bg-card">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <div>
+                  <p className="text-sm font-medium">{conn.googleEmail}</p>
+                  {testResult[conn.id] && (
+                    <p className="text-xs text-muted-foreground">
+                      {testResult[conn.id].ok
+                        ? `${testResult[conn.id].calendars?.length ?? 0} calendars`
                         : 'Connection failed'}
                     </p>
                   )}

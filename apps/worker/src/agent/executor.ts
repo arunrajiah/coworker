@@ -17,6 +17,7 @@ import { listIssuesTool, createIssueTool, updateIssueTool, listPRsTool, listGitC
 import { listVercelConnectionsTool, listDeploymentsTool, triggerDeploymentTool, getDeploymentStatusTool } from './tools/vercel.js'
 import { listLinearConnectionsTool, listLinearIssuesTool, createLinearIssueTool, updateLinearIssueTool, searchLinearIssuesTool } from './tools/linear.js'
 import { listNotionConnectionsTool, searchNotionTool, readNotionPageTool, createNotionPageTool, appendNotionPageTool, queryNotionDatabaseTool } from './tools/notion.js'
+import { listGcalConnectionsTool, listCalendarsTool, listEventsTool, createEventTool, updateEventTool, deleteEventTool, findFreeTool } from './tools/gcal.js'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -157,6 +158,13 @@ export async function executeAgentRun(
       create_notion_page: createNotionPageTool(db, workspaceId),
       append_notion_page: appendNotionPageTool(db, workspaceId),
       query_notion_database: queryNotionDatabaseTool(db, workspaceId),
+      list_gcal_connections: listGcalConnectionsTool(db, workspaceId),
+      list_calendars: listCalendarsTool(db, workspaceId),
+      list_events: listEventsTool(db, workspaceId),
+      create_event: createEventTool(db, workspaceId),
+      update_event: updateEventTool(db, workspaceId),
+      delete_event: deleteEventTool(db, workspaceId),
+      find_free_time: findFreeTool(db, workspaceId),
     }
 
     const result = await generateText({

@@ -9,6 +9,7 @@ export * from './platform/git'
 export * from './platform/vercel'
 export * from './platform/linear'
 export * from './platform/notion'
+export * from './platform/gcal'
 
 // Tenant schema
 export * from './tenant/tasks'
