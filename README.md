@@ -48,10 +48,11 @@ Coworker is an open-source AI coworker for founders. It manages tasks, remembers
 - **Git** — GitHub, GitLab, Bitbucket issue sync + webhook triggers. Issues become kanban tasks automatically.
 - **Vercel** — monitor deployments and trigger deploys from the agent or autopilot.
 - **Linear** — connect your Linear workspace; agent can list, create, update, and search issues directly from chat.
+- **Notion** — connect via internal integration token; agent can search pages, read docs, create pages, and query databases.
 - **Telegram** — chat with your coworker from any device.
 - **Slack** — Socket Mode bot; DM or @mention your bot in any channel.
 - **WhatsApp** — Twilio-based; message your coworker via WhatsApp using any number.
-- All managed from **Settings** (tabbed: General · AI Model · Git · Vercel · Linear · Telegram · Slack · WhatsApp · Files).
+- All managed from **Settings** (tabbed: General · AI Model · Git · Vercel · Linear · Notion · Telegram · Slack · WhatsApp · Files).
 
 ### UX
 - **Dark mode** — Sun/Moon toggle in the sidebar, persisted to `localStorage`, no flash on load.
@@ -344,7 +345,7 @@ Upload PDFs, images, and text files to your workspace from **Settings → Files*
 - [x] Memory management UI — browse, delete, and clear agent memories per workspace
 - [x] Drag-and-drop, multi-file, paste, and browse-existing file attachment in chat
 - [x] Linear integration — connect workspace, list/create/update/search issues from chat
-- [ ] Notion integration
+- [x] Notion integration — search pages, read docs, create pages, query databases from chat
 - [ ] Google Calendar integration
 - [ ] Public skills marketplace
 - [ ] Mobile app
