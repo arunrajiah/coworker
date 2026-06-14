@@ -57,7 +57,7 @@ export const api = {
     create: (data: { name: string; templateType?: string }) =>
       apiRequest<Workspace>('/api/workspaces', { method: 'POST', body: JSON.stringify(data) }),
     get: (slug: string) => apiRequest<Workspace>(`/api/workspaces/${slug}`),
-    update: (slug: string, data: { name?: string; llmProvider?: LLMProvider | null; llmModel?: string | null }) =>
+    update: (slug: string, data: { name?: string; llmProvider?: LLMProvider | null; llmModel?: string | null; monthlyBudgetUsd?: number | null; budgetAlertThreshold?: number }) =>
       apiRequest<Workspace>(`/api/workspaces/${slug}`, { method: 'PATCH', body: JSON.stringify(data) }),
     // Member management
     listMembers: (slug: string) =>
@@ -352,6 +352,13 @@ export const api = {
       apiRequest(`/api/workspaces/${slug}/notion/${id}`, { method: 'DELETE' }),
   },
 
+  usage: {
+    get: (slug: string, month?: string) => {
+      const params = month ? `?month=${month}` : ''
+      return apiRequest<UsageStats>(`/api/workspaces/${slug}/usage${params}`)
+    },
+  },
+
   gcal: {
     list: (slug: string) =>
       apiRequest<GcalConnection[]>(`/api/workspaces/${slug}/gcal`),
@@ -381,6 +388,8 @@ export interface Workspace {
   createdAt: string
   llmProvider: LLMProvider | null
   llmModel: string | null
+  monthlyBudgetUsd: number | null
+  budgetAlertThreshold: number
 }
 
 export interface WorkspaceMember {
@@ -530,6 +539,19 @@ export interface VercelDeployment {
   state: 'BUILDING' | 'ERROR' | 'INITIALIZING' | 'QUEUED' | 'READY' | 'CANCELED'
   createdAt: number
   target: 'production' | 'staging' | null
+}
+
+export interface UsageStats {
+  month: string
+  runCount: number
+  totalTokens: number
+  promptTokens: number
+  completionTokens: number
+  totalCostUsd: number
+  monthlyBudgetUsd: number | null
+  budgetAlertThreshold: number
+  daily: { day: string; runs: number; costUsd: number }[]
+  alerts: { id: string; thresholdPct: number; spendUsd: string; budgetUsd: string; firedAt: string }[]
 }
 
 export interface GcalConnection {

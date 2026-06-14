@@ -460,15 +460,36 @@ function ModelSection({ slug }: { slug: string }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [providerHealth, setProviderHealth] = useState<Record<string, boolean>>({})
+  const [usage, setUsage] = useState<import('@/lib/api').UsageStats | null>(null)
+  const [budgetInput, setBudgetInput] = useState('')
+  const [thresholdInput, setThresholdInput] = useState('80')
+  const [savingBudget, setSavingBudget] = useState(false)
 
   useEffect(() => {
     api.workspaces.get(slug).then((ws) => {
       setWorkspace(ws)
       setProvider(ws.llmProvider ?? '')
       setModel(ws.llmModel ?? '')
+      setBudgetInput(ws.monthlyBudgetUsd != null ? String(ws.monthlyBudgetUsd) : '')
+      setThresholdInput(String((ws as unknown as { budgetAlertThreshold?: number }).budgetAlertThreshold ?? 80))
     })
     api.providers.health().then((res) => setProviderHealth(res.configured)).catch(() => {})
+    api.usage.get(slug).then(setUsage).catch(() => {})
   }, [slug])
+
+  async function handleSaveBudget() {
+    setSavingBudget(true)
+    try {
+      const updated = await api.workspaces.update(slug, {
+        monthlyBudgetUsd: budgetInput ? Number(budgetInput) : null,
+        budgetAlertThreshold: Number(thresholdInput) || 80,
+      })
+      setWorkspace(updated)
+      setUsage((prev) => prev ? { ...prev, monthlyBudgetUsd: budgetInput ? Number(budgetInput) : null, budgetAlertThreshold: Number(thresholdInput) || 80 } : prev)
+    } finally {
+      setSavingBudget(false)
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -592,6 +613,81 @@ function ModelSection({ slug }: { slug: string }) {
           </div>
         </div>
       )}
+
+      {/* Cost budget */}
+      <div className="mt-6 rounded-md border border-border p-4 space-y-4">
+        <div>
+          <p className="text-sm font-medium">Monthly Cost Budget</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Set a spending cap and get alerted when you reach the threshold.
+          </p>
+        </div>
+
+        {usage && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">This month ({usage.month})</span>
+              <span className="font-medium">${usage.totalCostUsd.toFixed(4)} {usage.monthlyBudgetUsd ? `/ $${usage.monthlyBudgetUsd.toFixed(2)}` : ''}</span>
+            </div>
+            {usage.monthlyBudgetUsd && (
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all',
+                    usage.totalCostUsd / usage.monthlyBudgetUsd >= 1 ? 'bg-destructive' :
+                    usage.totalCostUsd / usage.monthlyBudgetUsd >= (usage.budgetAlertThreshold / 100) ? 'bg-yellow-500' :
+                    'bg-primary'
+                  )}
+                  style={{ width: `${Math.min(100, (usage.totalCostUsd / usage.monthlyBudgetUsd) * 100).toFixed(1)}%` }}
+                />
+              </div>
+            )}
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <span>{usage.runCount} runs</span>
+              <span>{usage.totalTokens.toLocaleString()} tokens</span>
+            </div>
+            {usage.alerts.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-yellow-600 dark:text-yellow-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span>Alert fired at {usage.alerts[0].thresholdPct}% (${Number(usage.alerts[0].spendUsd).toFixed(4)} spent)</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Budget (USD/month)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="e.g. 10.00"
+              value={budgetInput}
+              onChange={(e) => setBudgetInput(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm border rounded-md bg-background"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Alert threshold (%)</label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={thresholdInput}
+              onChange={(e) => setThresholdInput(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm border rounded-md bg-background"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleSaveBudget}
+          disabled={savingBudget}
+          className="px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {savingBudget ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save budget'}
+        </button>
+      </div>
     </section>
   )
 }

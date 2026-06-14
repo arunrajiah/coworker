@@ -127,6 +127,8 @@ workspaceRoutes.patch(
         .nullable()
         .optional(),
       llmModel: z.string().max(128).nullable().optional(),
+      monthlyBudgetUsd: z.number().positive().nullable().optional(),
+      budgetAlertThreshold: z.number().int().min(1).max(100).optional(),
     })
   ),
   async (c) => {
@@ -148,6 +150,8 @@ workspaceRoutes.patch(
     if (body.name !== undefined) updates.name = body.name
     if (body.llmProvider !== undefined) updates.llmProvider = body.llmProvider
     if (body.llmModel !== undefined) updates.llmModel = body.llmModel
+    if (body.monthlyBudgetUsd !== undefined) updates.monthlyBudgetUsd = body.monthlyBudgetUsd !== null ? String(body.monthlyBudgetUsd) : null
+    if (body.budgetAlertThreshold !== undefined) updates.budgetAlertThreshold = body.budgetAlertThreshold
 
     const [updated] = await db
       .update(workspaces)

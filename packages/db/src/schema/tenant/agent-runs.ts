@@ -1,4 +1,4 @@
-import { uuid, text, timestamp, integer, jsonb, pgEnum, index } from 'drizzle-orm/pg-core'
+import { uuid, text, timestamp, integer, numeric, jsonb, pgEnum, index } from 'drizzle-orm/pg-core'
 import { tenantSchema } from './_schema'
 
 export const agentRunStatusEnum = pgEnum('agent_run_status', [
@@ -26,6 +26,9 @@ export const agentRuns = tenantSchema.table(
     output: text('output'),
     toolCalls: jsonb('tool_calls'),
     tokensUsed: integer('tokens_used'),
+    promptTokens: integer('prompt_tokens'),
+    completionTokens: integer('completion_tokens'),
+    costUsd: numeric('cost_usd', { precision: 10, scale: 6 }),
     durationMs: integer('duration_ms'),
     error: text('error'),
     startedAt: timestamp('started_at', { withTimezone: true }),

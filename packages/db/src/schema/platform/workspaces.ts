@@ -1,4 +1,4 @@
-import { uuid, text, timestamp, pgEnum, primaryKey, index } from 'drizzle-orm/pg-core'
+import { uuid, text, timestamp, numeric, integer, pgEnum, primaryKey, index } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { platformSchema } from './_schema'
 import { users } from './users'
@@ -40,6 +40,8 @@ export const workspaces = platformSchema.table('workspaces', {
   templateType: templateTypeEnum('template_type').notNull().default('general'),
   llmProvider: llmProviderEnum('llm_provider'),
   llmModel: text('llm_model'),
+  monthlyBudgetUsd: numeric('monthly_budget_usd', { precision: 10, scale: 4 }),
+  budgetAlertThreshold: integer('budget_alert_threshold').notNull().default(80),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

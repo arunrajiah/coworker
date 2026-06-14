@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X, Copy, Check, ChevronDown, Cpu, FolderOpen } from 'lucide-react'
 import { api, type Message, type WorkspaceFile, type LLMProvider } from '@/lib/api'
+import { toast } from 'sonner'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn, relativeTime } from '@/lib/utils'
@@ -219,6 +220,15 @@ export default function ThreadPage() {
         setAgentThinking(false)
         setAgentSlowWarning(false)
         if (agentSlowTimerRef.current) clearTimeout(agentSlowTimerRef.current)
+      } else if (event.type === 'budget:alert') {
+        const pct = event.thresholdPct as number
+        const spend = (event.spendUsd as number).toFixed(4)
+        const budget = (event.budgetUsd as number).toFixed(2)
+        if (pct >= 100) {
+          toast.error(`Budget exceeded — $${spend} spent of $${budget} monthly limit`, { duration: 8000 })
+        } else {
+          toast.warning(`Budget alert — ${pct}% of $${budget} monthly limit used ($${spend})`, { duration: 6000 })
+        }
       } else if (event.type === 'agent:error') {
         setAgentThinking(false)
         setAgentSlowWarning(false)

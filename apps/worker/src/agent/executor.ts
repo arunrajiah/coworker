@@ -18,6 +18,9 @@ import { listVercelConnectionsTool, listDeploymentsTool, triggerDeploymentTool, 
 import { listLinearConnectionsTool, listLinearIssuesTool, createLinearIssueTool, updateLinearIssueTool, searchLinearIssuesTool } from './tools/linear.js'
 import { listNotionConnectionsTool, searchNotionTool, readNotionPageTool, createNotionPageTool, appendNotionPageTool, queryNotionDatabaseTool } from './tools/notion.js'
 import { listGcalConnectionsTool, listCalendarsTool, listEventsTool, createEventTool, updateEventTool, deleteEventTool, findFreeTool } from './tools/gcal.js'
+import { estimateCostUsd } from './cost.js'
+import { budgetAlerts } from '@coworker/db'
+import { sql } from 'drizzle-orm'
 import type { TemplateType, ActiveSkill } from '@coworker/core'
 
 export interface AgentJobData {
@@ -189,6 +192,8 @@ export async function executeAgentRun(
 
     const output = result.text
     const tokensUsed = result.usage.totalTokens
+    const promptTokens = result.usage.promptTokens
+    const completionTokens = result.usage.completionTokens
     const durationMs = Date.now() - startedAt.getTime()
 
     const providerConfig = workspace.llmProvider
@@ -196,6 +201,7 @@ export async function executeAgentRun(
       : undefined
     const resolvedProvider = providerConfig?.provider ?? (detectDefaultProviderName() ?? 'unknown')
     const resolvedModel = providerConfig?.model ?? DEFAULT_MODELS[resolvedProvider as import('./provider.js').ProviderName] ?? 'unknown'
+    const costUsd = estimateCostUsd(resolvedModel, resolvedProvider, promptTokens, completionTokens)
 
     // Save assistant message with token + model metadata for UI display
     const [assistantMessage] = await withWorkspace(db, workspaceId, async (tx) =>
@@ -210,6 +216,9 @@ export async function executeAgentRun(
           toolCalls: result.toolCalls.length > 0 ? (result.toolCalls as any) : null,
           metadata: {
             tokensUsed,
+            promptTokens,
+            completionTokens,
+            costUsd,
             provider: resolvedProvider,
             model: resolvedModel,
           },
@@ -224,11 +233,56 @@ export async function executeAgentRun(
         status: 'completed',
         output,
         tokensUsed,
+        promptTokens,
+        completionTokens,
+        costUsd: String(costUsd),
         durationMs,
         completedAt: new Date(),
         toolCalls: result.toolCalls.length > 0 ? (result.toolCalls as any) : null,
       })
       .where(eq(agentRuns.id, agentRunId))
+
+    // Check budget alerts
+    const budget = workspace.monthlyBudgetUsd ? Number(workspace.monthlyBudgetUsd) : null
+    if (budget && budget > 0) {
+      const month = new Date().toISOString().slice(0, 7) // YYYY-MM
+      const spendRow = await withWorkspace(db, workspaceId, async (tx) =>
+        tx.execute(
+          sql`SELECT COALESCE(SUM(cost_usd::numeric), 0) AS total FROM tenant.agent_runs
+              WHERE workspace_id = ${workspaceId}::uuid
+                AND date_trunc('month', created_at) = date_trunc('month', now())`
+        )
+      )
+      const monthSpend = Number((spendRow.rows[0] as { total: string }).total)
+      const pct = (monthSpend / budget) * 100
+      const thresholds = [workspace.budgetAlertThreshold, 100].filter((t) => pct >= t)
+
+      for (const threshold of thresholds) {
+        // INSERT ... ON CONFLICT DO NOTHING to avoid duplicate alerts per month
+        await withWorkspace(db, workspaceId, async (tx) =>
+          tx
+            .insert(budgetAlerts)
+            .values({
+              workspaceId,
+              month,
+              thresholdPct: threshold,
+              spendUsd: String(monthSpend),
+              budgetUsd: String(budget),
+            })
+            .onConflictDoNothing()
+        )
+        await redis.publish(
+          `ws:${workspaceId}`,
+          JSON.stringify({
+            type: 'budget:alert',
+            month,
+            thresholdPct: threshold,
+            spendUsd: monthSpend,
+            budgetUsd: budget,
+          })
+        )
+      }
+    }
 
     // Save memory of this interaction
     await saveMemory(
