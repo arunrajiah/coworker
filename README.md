@@ -348,6 +348,7 @@ Upload PDFs, images, and text files to your workspace from **Settings → Files*
 - [x] Linear integration — connect workspace, list/create/update/search issues from chat
 - [x] Notion integration — search pages, read docs, create pages, query databases from chat
 - [x] Google Calendar integration — list/create/update/delete events, check free/busy time
+- [x] Cost budget alerts — per-run cost tracking, monthly cap, threshold alerts in Settings + live toast in chat
 - [ ] Public skills marketplace
 - [ ] Mobile app
 
