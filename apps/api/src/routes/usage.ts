@@ -59,13 +59,13 @@ usageRoutes.get('/', async (c) => {
     }),
   ])
 
-  const spend = spendRow.rows[0] as {
+  const spend = (spendRow as unknown as {
     run_count: string
     total_tokens: string
     prompt_tokens: string
     completion_tokens: string
     total_cost: string
-  }
+  }[])[0]
 
   return c.json({
     month,
@@ -76,7 +76,7 @@ usageRoutes.get('/', async (c) => {
     totalCostUsd: Number(spend.total_cost),
     monthlyBudgetUsd: ws?.monthlyBudgetUsd ? Number(ws.monthlyBudgetUsd) : null,
     budgetAlertThreshold: ws?.budgetAlertThreshold ?? 80,
-    daily: (dailyRows.rows as { day: string; runs: string; cost: string }[]).map((r) => ({
+    daily: (dailyRows as unknown as { day: string; runs: string; cost: string }[]).map((r) => ({
       day: r.day,
       runs: Number(r.runs),
       costUsd: Number(r.cost),
