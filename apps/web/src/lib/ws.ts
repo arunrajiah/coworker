@@ -7,6 +7,7 @@ type WSEvent =
   | { type: 'agent:message'; agentRunId: string; message: import('./api').Message }
   | { type: 'agent:complete'; agentRunId: string }
   | { type: 'agent:error'; agentRunId: string; error: string }
+  | { type: 'budget:alert'; month: string; thresholdPct: number; spendUsd: number; budgetUsd: number }
   | { type: 'task:created'; task: import('./api').Task }
   | { type: 'task:updated'; task: import('./api').Task }
   | { type: 'task:deleted'; taskId: string }

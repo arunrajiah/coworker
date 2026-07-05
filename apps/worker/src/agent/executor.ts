@@ -253,7 +253,7 @@ export async function executeAgentRun(
                 AND date_trunc('month', created_at) = date_trunc('month', now())`
         )
       )
-      const monthSpend = Number((spendRow.rows[0] as { total: string }).total)
+      const monthSpend = Number(((spendRow as unknown as { total: string }[])[0]).total)
       const pct = (monthSpend / budget) * 100
       const thresholds = [workspace.budgetAlertThreshold, 100].filter((t) => pct >= t)
 
