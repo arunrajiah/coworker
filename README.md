@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Coworker logo" width="96" height="96">
+</p>
+
 # Coworker
 
 **The teammate who never sleeps.**
