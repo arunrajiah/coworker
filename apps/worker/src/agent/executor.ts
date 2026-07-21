@@ -18,6 +18,9 @@ import { listVercelConnectionsTool, listDeploymentsTool, triggerDeploymentTool, 
 import { listLinearConnectionsTool, listLinearIssuesTool, createLinearIssueTool, updateLinearIssueTool, searchLinearIssuesTool } from './tools/linear.js'
 import { listNotionConnectionsTool, searchNotionTool, readNotionPageTool, createNotionPageTool, appendNotionPageTool, queryNotionDatabaseTool } from './tools/notion.js'
 import { listGcalConnectionsTool, listCalendarsTool, listEventsTool, createEventTool, updateEventTool, deleteEventTool, findFreeTool } from './tools/gcal.js'
+import { searchSpecsTool } from './tools/search-specs.js'
+import { createSpecTool } from './tools/create-spec.js'
+import { processFeedbackTool } from './tools/process-feedback.js'
 import { estimateCostUsd } from './cost.js'
 import { budgetAlerts } from '@coworker/db'
 import { sql } from 'drizzle-orm'
@@ -168,6 +171,9 @@ export async function executeAgentRun(
       update_event: updateEventTool(db, workspaceId),
       delete_event: deleteEventTool(db, workspaceId),
       find_free_time: findFreeTool(db, workspaceId),
+      search_specs: searchSpecsTool(db, workspaceId),
+      create_spec: createSpecTool(db, workspaceId, userId),
+      process_feedback: processFeedbackTool(db, workspaceId, userId),
     }
 
     const result = await generateText({

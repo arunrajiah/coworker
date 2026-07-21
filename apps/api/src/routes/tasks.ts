@@ -30,6 +30,8 @@ const taskSchema = z.object({
   agentOwned: z.boolean().optional(),
   queuedForAgent: z.boolean().optional(),
   agentNotes: z.string().optional().nullable(),
+  specId: z.string().uuid().optional().nullable(),
+  acceptanceCriteria: z.string().max(10000).optional().nullable(),
 })
 
 // List tasks — supports ?status=&domain=&priority=&limit=&offset=

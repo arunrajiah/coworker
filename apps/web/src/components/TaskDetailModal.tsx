@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { X, Trash2, Loader2, Bot, GitBranch, Calendar, Tag, Plus } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, Trash2, Loader2, Bot, GitBranch, Calendar, Tag, Plus, FileText } from 'lucide-react'
 import { toast } from 'sonner'
-import { api, type Task, type TaskStatus, type TaskPriority, type TaskDomain } from '@/lib/api'
+import { api, type Task, type TaskStatus, type TaskPriority, type TaskDomain, type Spec } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
@@ -52,10 +52,17 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
   const [dueDate, setDueDate] = useState(task.dueDate ? task.dueDate.split('T')[0] : '')
   const [labels, setLabels] = useState<string[]>(task.labels ?? [])
   const [labelInput, setLabelInput] = useState('')
+  const [specId, setSpecId] = useState<string | null>(task.specId ?? null)
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState(task.acceptanceCriteria ?? '')
+  const [specs, setSpecs] = useState<Spec[]>([])
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const labelInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    api.specs.list(slug).then((res) => setSpecs(res.specs)).catch(() => {})
+  }, [slug])
 
   const isDirty =
     title !== task.title ||
@@ -64,6 +71,8 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
     priority !== task.priority ||
     domain !== task.domain ||
     dueDate !== (task.dueDate ? task.dueDate.split('T')[0] : '') ||
+    specId !== (task.specId ?? null) ||
+    acceptanceCriteria !== (task.acceptanceCriteria ?? '') ||
     JSON.stringify(labels.sort()) !== JSON.stringify([...(task.labels ?? [])].sort())
 
   function addLabel() {
@@ -90,6 +99,8 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
         domain,
         dueDate: dueDate || null,
         labels,
+        specId: specId || null,
+        acceptanceCriteria: acceptanceCriteria.trim() || null,
       } as Partial<Task>)
       onUpdated(updated)
       toast.success('Task saved')
@@ -239,6 +250,38 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Spec link */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <FileText className="h-3 w-3" />
+              Linked spec
+            </label>
+            <select
+              value={specId ?? ''}
+              onChange={(e) => setSpecId(e.target.value || null)}
+              className="w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">No spec linked</option>
+              {specs.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.type === 'requirement' ? 'REQ' : s.type === 'blueprint' ? 'BLU' : 'FB'} — {s.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Acceptance criteria */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Acceptance criteria</label>
+            <textarea
+              value={acceptanceCriteria}
+              onChange={(e) => setAcceptanceCriteria(e.target.value)}
+              placeholder="- [ ] ..."
+              rows={3}
+              className="w-full text-sm bg-muted/30 border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring resize-none placeholder:text-muted-foreground font-mono text-xs"
+            />
           </div>
 
           {/* Agent notes */}
