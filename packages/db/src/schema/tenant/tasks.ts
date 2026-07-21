@@ -41,6 +41,8 @@ export const tasks = tenantSchema.table(
     labels: text('labels').array().notNull().default([]),
     parentId: uuid('parent_id'),
     agentNotes: text('agent_notes'),
+    specId: uuid('spec_id'),
+    acceptanceCriteria: text('acceptance_criteria'),
     metadata: jsonb('metadata'),
     gitConnectionId: uuid('git_connection_id'),
     gitIssueNumber: integer('git_issue_number'),

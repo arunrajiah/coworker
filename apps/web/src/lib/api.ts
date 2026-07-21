@@ -307,6 +307,27 @@ export const api = {
       apiRequest<{ configured: Record<string, boolean> }>('/api/providers/health'),
   },
 
+  specs: {
+    list: (slug: string, type?: SpecType) => {
+      const qs = type ? `?type=${type}` : ''
+      return apiRequest<{ specs: Spec[] }>(`/api/workspaces/${slug}/specs${qs}`)
+    },
+    get: (slug: string, id: string) =>
+      apiRequest<Spec>(`/api/workspaces/${slug}/specs/${id}`),
+    create: (slug: string, data: Pick<Spec, 'title'> & Partial<Pick<Spec, 'content' | 'type' | 'status'>>) =>
+      apiRequest<Spec>(`/api/workspaces/${slug}/specs`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (slug: string, id: string, data: Partial<Pick<Spec, 'title' | 'content' | 'type' | 'status'>>) =>
+      apiRequest<Spec>(`/api/workspaces/${slug}/specs/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: (slug: string, id: string) =>
+      apiRequest(`/api/workspaces/${slug}/specs/${id}`, { method: 'DELETE' }),
+  },
+
   memories: {
     list: (slug: string, opts?: { limit?: number; offset?: number }) => {
       const params = new URLSearchParams()
@@ -428,9 +449,26 @@ export interface Task {
   agentOwned: boolean
   queuedForAgent: boolean
   agentNotes: string | null
+  specId: string | null
+  acceptanceCriteria: string | null
   gitConnectionId: string | null
   gitIssueNumber: number | null
   metadata: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type SpecType = 'requirement' | 'blueprint' | 'feedback'
+export type SpecStatus = 'draft' | 'active' | 'deprecated'
+
+export interface Spec {
+  id: string
+  workspaceId: string
+  title: string
+  content: string
+  type: SpecType
+  status: SpecStatus
+  createdBy: string
   createdAt: string
   updatedAt: string
 }

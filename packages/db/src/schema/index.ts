@@ -13,6 +13,7 @@ export * from './platform/gcal'
 
 // Tenant schema
 export * from './tenant/tasks'
+export * from './tenant/specs'
 export * from './tenant/messages'
 export * from './tenant/agent-runs'
 export * from './tenant/memories'
