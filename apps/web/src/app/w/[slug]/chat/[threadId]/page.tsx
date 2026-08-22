@@ -26,7 +26,6 @@ export default function ThreadPage() {
   const threadId = params.threadId as string
 
   const token = useAuthStore((s) => s.token)
-  const isAutopilotThread = threadId.startsWith('autopilot:')
 
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -78,7 +77,7 @@ export default function ThreadPage() {
     setThreadProvider(null)
     setThreadModel(null)
     pendingOverrideRef.current = null
-    if (threadId === 'new' || isAutopilotThread) return
+    if (threadId === 'new') return
     api.chat
       .getThreadSettings(slug, threadId)
       .then((s) => {
@@ -86,7 +85,7 @@ export default function ThreadPage() {
         setThreadModel(s.llmModel)
       })
       .catch(() => {})
-  }, [slug, threadId, isAutopilotThread])
+  }, [slug, threadId])
 
   // Close model picker on outside click
   useEffect(() => {
@@ -336,6 +335,11 @@ export default function ThreadPage() {
       setSwitchingModel(false)
     }
   }
+
+  // Autopilot threads are detected by the metadata the worker stamps on trigger messages
+  const isAutopilotThread = messages.some(
+    (m) => (m.metadata as { autopilot?: boolean } | null)?.autopilot === true
+  )
 
   const template = FOUNDER_TEMPLATES[templateType]
   const suggestions = template?.suggestedFirstActions ?? []

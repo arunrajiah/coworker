@@ -13,6 +13,7 @@ interface Thread {
   title: string
   lastMessage: Message
   hasAgentActivity: boolean
+  isAutopilot: boolean
 }
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
@@ -93,7 +94,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
           )}
           {threads.map((thread) => {
             const isActive = activeThreadId === thread.threadId
-            const isAutopilot = thread.threadId.startsWith('autopilot:')
+            const isAutopilot = thread.isAutopilot
             return (
               <div
                 key={thread.threadId}
@@ -116,7 +117,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                   </span>
                 </div>
                 <p className="text-xs leading-snug text-foreground line-clamp-2 font-medium pr-5">
-                  {isAutopilot ? thread.threadId.replace('autopilot:', 'Autopilot: ') : thread.title}
+                  {thread.title}
                 </p>
                 {/* Delete button — hover reveal */}
                 <button

@@ -1,9 +1,19 @@
 import { Queue } from 'bullmq'
+import { createHash } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import type { DbClient } from '@coworker/db'
 import { eq, and } from 'drizzle-orm'
 import { autopilotRules, workspaceMembers } from '@coworker/db'
 import { withWorkspace, withSystemContext } from '@coworker/db'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// messages.thread_id is a uuid column, so every thread id must be a real uuid.
+// Hashing the seed keeps ids deterministic (same event -> same thread).
+function uuidFromSeed(seed: string): string {
+  const h = createHash('sha256').update(seed).digest('hex')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`
+}
 
 export interface AutopilotJobData {
   ruleId: string
@@ -140,7 +150,7 @@ export async function handleGitEvent(
     const fullPrompt = `${basePrompt}\n\n--- Git Event ---\n${eventContext}`
 
     // Use a unique thread per event so each issue/PR gets fresh agent context
-    const eventThreadId = `git:${connectionId}:${type}:${number ?? Date.now()}`
+    const eventThreadId = uuidFromSeed(`git:${connectionId}:${type}:${number ?? Date.now()}`)
 
     await autopilotQueue.add(
       'run-rule',
@@ -183,8 +193,15 @@ export async function executeAutopilotRule(
     })
     if (!owner) return
 
-    // Use event-scoped thread if provided (git events), otherwise persistent per-rule thread
-    const threadId = (actionConfig as { threadId?: string }).threadId ?? `autopilot:${ruleId}`
+    // Use event-scoped thread if provided (git events), otherwise the rule id as
+    // a persistent per-rule thread. Non-uuid ids (e.g. jobs queued before the
+    // uuid migration) are hashed into one.
+    const configuredThreadId = (actionConfig as { threadId?: string }).threadId
+    const threadId = configuredThreadId
+      ? UUID_RE.test(configuredThreadId)
+        ? configuredThreadId
+        : uuidFromSeed(configuredThreadId)
+      : ruleId
 
     // Save the trigger as a system message so the agent has context
     const { messages } = await import('@coworker/db')
@@ -197,6 +214,7 @@ export async function executeAutopilotRule(
         threadId,
         channel: 'web',
         userId: owner.userId,
+        metadata: { autopilot: true, ruleId, ruleName },
       })
     )
 
