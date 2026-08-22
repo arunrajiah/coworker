@@ -56,13 +56,21 @@ chatRoutes.get('/threads', async (c) => {
 
   const threads = Array.from(latestByThread.entries()).map(([threadId, latest]) => {
     const firstUser = firstUserByThread.get(threadId)
-    const rawTitle = firstUser?.content ?? latest.content ?? ''
+    // Autopilot trigger messages are stamped with metadata by the worker
+    const meta = (firstUser?.metadata ?? latest.metadata) as
+      | { autopilot?: boolean; ruleName?: string }
+      | null
+    const isAutopilot = meta?.autopilot === true
+    const rawTitle = isAutopilot
+      ? `Autopilot: ${meta?.ruleName ?? 'rule'}`
+      : firstUser?.content ?? latest.content ?? ''
     const title = rawTitle.length > 60 ? rawTitle.slice(0, 60).trimEnd() + '…' : rawTitle
     return {
       threadId,
       title,
       lastMessage: latest,
       hasAgentActivity: latest.role === 'assistant',
+      isAutopilot,
     }
   })
 

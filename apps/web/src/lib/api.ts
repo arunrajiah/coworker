@@ -288,7 +288,7 @@ export const api = {
 
   chat: {
     threads: (slug: string) =>
-      apiRequest<{ threadId: string; title: string; lastMessage: Message; hasAgentActivity: boolean }[]>(
+      apiRequest<{ threadId: string; title: string; lastMessage: Message; hasAgentActivity: boolean; isAutopilot: boolean }[]>(
         `/api/workspaces/${slug}/chat/threads`
       ),
     messages: (slug: string, threadId: string) =>
