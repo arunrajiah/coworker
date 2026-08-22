@@ -310,14 +310,23 @@ export default function WorkspaceDashboard() {
   )
 }
 
+const KPI_CHIP_BG: Record<string, string> = {
+  'text-blue-600': 'bg-blue-500/10',
+  'text-yellow-600': 'bg-yellow-500/10',
+  'text-green-600': 'bg-green-500/10',
+  'text-red-600': 'bg-red-500/10',
+}
+
 function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
   return (
-    <div className="rounded-xl border border-border bg-background p-4 space-y-2">
-      <div className={cn('flex items-center gap-2 text-sm font-medium', color)}>
+    <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3.5 transition-shadow hover:shadow-sm">
+      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', color, KPI_CHIP_BG[color] ?? 'bg-muted')}>
         {icon}
-        <span>{label}</span>
+      </span>
+      <div className="min-w-0">
+        <p className="text-3xl font-bold tabular-nums leading-none">{value}</p>
+        <p className="mt-1 text-xs font-medium text-muted-foreground truncate">{label}</p>
       </div>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
     </div>
   )
 }

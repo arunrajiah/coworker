@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -7,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: coworker
       POSTGRES_USER: coworker
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coworker}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,15 +27,31 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot: applies schema migrations, pgvector setup, and RLS policies, then exits.
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: build
+    working_dir: /app/packages/db
+    command: ["npx", "tsx", "src/migrate.ts"]
+    environment:
+      DATABASE_URL: postgresql://coworker:${POSTGRES_PASSWORD:-coworker}@postgres:5432/coworker
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
   api:
     build:
       context: ../..
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://coworker:${POSTGRES_PASSWORD}@postgres:5432/coworker
+      DATABASE_URL: postgresql://coworker:${POSTGRES_PASSWORD:-coworker}@postgres:5432/coworker
       REDIS_URL: redis://redis:6379
-      AUTH_SECRET: ${AUTH_SECRET}
+      # Dev-only default. Set a real AUTH_SECRET (openssl rand -hex 32) for anything internet-facing.
+      AUTH_SECRET: ${AUTH_SECRET:-local-dev-secret-change-me}
+      LOCAL_AUTH: ${LOCAL_AUTH:-false}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -54,6 +68,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     ports:
       - "3001:3001"
 
@@ -63,7 +78,7 @@ services:
       dockerfile: apps/worker/Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://coworker:${POSTGRES_PASSWORD}@postgres:5432/coworker
+      DATABASE_URL: postgresql://coworker:${POSTGRES_PASSWORD:-coworker}@postgres:5432/coworker
       REDIS_URL: redis://redis:6379
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -74,15 +89,18 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       api: { condition: service_started }
 
   web:
     build:
       context: ../..
       dockerfile: apps/web/Dockerfile
+      args:
+        # Next.js inlines NEXT_PUBLIC_* at build time, so these must be build args.
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_LOCAL_AUTH: ${LOCAL_AUTH:-false}
     restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3001}
     ports:
       - "3000:3000"
     depends_on:

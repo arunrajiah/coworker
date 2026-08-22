@@ -78,7 +78,7 @@ export default function MemoryPage() {
               Memory
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Everything your coworker remembers — drawn from conversations and file uploads
+              Everything your coworker remembers, drawn from conversations and file uploads
             </p>
           </div>
           <div className="flex items-center gap-2">

@@ -26,7 +26,7 @@ export interface LLMProvider {
 
 // Default models per provider
 const DEFAULT_MODELS: Record<ProviderName, string> = {
-  anthropic: 'claude-sonnet-4-5',
+  anthropic: 'claude-sonnet-4-6',
   openai: 'gpt-4o',
   google: 'gemini-2.0-flash',
   groq: 'llama-3.3-70b-versatile',

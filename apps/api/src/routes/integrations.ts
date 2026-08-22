@@ -150,13 +150,15 @@ integrationRoutes.delete('/files/:fileId', async (c) => {
   const fileId = c.req.param('fileId')
   const { db, storage } = getContainer()
 
-  const file = await db.query.files.findFirst({ where: eq(files.id, fileId) })
+  const file = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.query.files.findFirst({ where: eq(files.id, fileId) })
+  )
   if (!file || file.workspaceId !== workspaceId) {
     return c.json({ error: 'Not found' }, 404)
   }
 
   await storage.delete(file.storageKey)
-  await db.delete(files).where(eq(files.id, fileId))
+  await withWorkspace(db, workspaceId, async (tx) => tx.delete(files).where(eq(files.id, fileId)))
 
   return c.json({ ok: true })
 })
@@ -167,13 +169,17 @@ integrationRoutes.get('/files/:fileId/extracted-text', async (c) => {
   const fileId = c.req.param('fileId')
   const { db } = getContainer()
 
-  const file = await db.query.files.findFirst({ where: eq(files.id, fileId) })
+  const file = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.query.files.findFirst({ where: eq(files.id, fileId) })
+  )
   if (!file || file.workspaceId !== workspaceId) {
     return c.json({ error: 'Not found' }, 404)
   }
 
-  const chunks = await db.execute(
-    sql`SELECT content, metadata FROM tenant.memories WHERE workspace_id = ${workspaceId}::uuid AND source_type = 'file' AND source_id = ${fileId}::uuid ORDER BY (metadata->>'chunkIndex')::int NULLS LAST`
+  const chunks = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.execute(
+      sql`SELECT content, metadata FROM tenant.memories WHERE workspace_id = ${workspaceId}::uuid AND source_type = 'file' AND source_id = ${fileId}::uuid ORDER BY (metadata->>'chunkIndex')::int NULLS LAST`
+    )
   )
 
   return c.json({

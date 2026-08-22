@@ -1,4 +1,4 @@
-import type { TemplateType } from '../agent/types.js'
+import type { TemplateType } from '../agent/types'
 
 export interface SkillSeed {
   name: string
@@ -236,7 +236,7 @@ in terms of hourly rate, project profitability, and work-life balance.`,
   creator: {
     type: 'creator',
     name: 'Creator',
-    description: 'For content creators — YouTubers, podcasters, newsletter writers, and influencers',
+    description: 'For content creators: YouTubers, podcasters, newsletter writers, and influencers',
     systemPromptAddition: `You are the AI coworker for a content creator. You understand metrics like
 subscriber count, views, watch time, open rate, sponsorship revenue, and CPM. You
 help plan content calendars, manage brand deals, track publishing deadlines, and grow
@@ -340,7 +340,7 @@ terms of pipeline conversion, transaction volume, and portfolio performance.`,
         actionType: 'run_agent',
         actionConfig: {
           prompt:
-            'It\'s Wednesday — mid-week pipeline check. How many deals are active? Which are at risk? What\'s the estimated GCI for the month?',
+            'It\'s Wednesday, time for the mid-week pipeline check. How many deals are active? Which are at risk? What\'s the estimated GCI for the month?',
         },
       },
     ],

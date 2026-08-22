@@ -9,6 +9,7 @@
     "./email": "./src/email/interfaces.ts",
     "./billing": "./src/billing/interfaces.ts",
     "./agent": "./src/agent/types.ts",
-    "./templates": "./src/templates/index.ts"
+    "./templates": "./src/templates/index.ts",
+    "./models": "./src/models/index.ts"
   }
 }

@@ -2,6 +2,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import type { DbClient } from '@coworker/db'
+import { withWorkspace } from '@coworker/db'
 
 export function readFileTool(db: DbClient, workspaceId: string) {
   return tool({
@@ -11,8 +12,10 @@ export function readFileTool(db: DbClient, workspaceId: string) {
       fileId: z.string().describe('The ID of the file to read'),
     }),
     execute: async ({ fileId }) => {
-      const chunks = await db.execute(
-        sql`SELECT content, metadata FROM tenant.memories WHERE workspace_id = ${workspaceId}::uuid AND source_type = 'file' AND source_id = ${fileId}::uuid ORDER BY (metadata->>'chunkIndex')::int NULLS LAST LIMIT 50`
+      const chunks = await withWorkspace(db, workspaceId, async (tx) =>
+        tx.execute(
+          sql`SELECT content, metadata FROM tenant.memories WHERE workspace_id = ${workspaceId}::uuid AND source_type = 'file' AND source_id = ${fileId}::uuid ORDER BY (metadata->>'chunkIndex')::int NULLS LAST LIMIT 50`
+        )
       )
 
       const rows = chunks as any[]

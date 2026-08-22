@@ -23,6 +23,11 @@ WORKDIR /app
 COPY --from=deps /app ./
 # Overlay with actual source files
 COPY . .
+# NEXT_PUBLIC_* vars are inlined into the browser bundle at build time
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ARG NEXT_PUBLIC_LOCAL_AUTH=false
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_LOCAL_AUTH=$NEXT_PUBLIC_LOCAL_AUTH
 RUN pnpm --filter=@coworker/web build
 
 FROM node:22-alpine AS runner

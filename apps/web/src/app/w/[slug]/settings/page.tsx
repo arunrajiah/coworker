@@ -7,6 +7,7 @@ import { api, type Skill, type TelegramConnection, type WorkspaceFile, type Extr
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn } from '@/lib/utils'
+import { PROVIDER_LABELS, PROVIDER_MODELS } from '@coworker/core'
 
 const SETTINGS_TABS = [
   { id: 'general', label: 'General' },
@@ -369,89 +370,6 @@ function GeneralSection({ slug }: { slug: string }) {
 }
 
 // ── Model Section ─────────────────────────────────────────────────────────────
-
-const PROVIDER_LABELS: Record<LLMProvider, string> = {
-  anthropic: 'Anthropic',
-  openai: 'OpenAI',
-  google: 'Google',
-  groq: 'Groq',
-  mistral: 'Mistral',
-  xai: 'xAI (Grok)',
-  cohere: 'Cohere',
-  deepseek: 'DeepSeek',
-  together: 'Together AI',
-  openrouter: 'OpenRouter',
-  ollama: 'Ollama (local)',
-}
-
-const PROVIDER_MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
-  anthropic: [
-    { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
-    { value: 'claude-opus-4-5', label: 'Claude Opus 4.5' },
-    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-  ],
-  openai: [
-    { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'o1', label: 'o1' },
-    { value: 'o3-mini', label: 'o3-mini' },
-  ],
-  google: [
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'gemini-2.0-pro', label: 'Gemini 2.0 Pro' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-  ],
-  groq: [
-    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
-    { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant' },
-    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-    { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
-  ],
-  mistral: [
-    { value: 'mistral-large-latest', label: 'Mistral Large' },
-    { value: 'mistral-small-latest', label: 'Mistral Small' },
-    { value: 'codestral-latest', label: 'Codestral' },
-    { value: 'open-mistral-nemo', label: 'Mistral Nemo (open)' },
-  ],
-  xai: [
-    { value: 'grok-3', label: 'Grok 3' },
-    { value: 'grok-3-mini', label: 'Grok 3 Mini' },
-    { value: 'grok-2-1212', label: 'Grok 2' },
-  ],
-  cohere: [
-    { value: 'command-r-plus', label: 'Command R+' },
-    { value: 'command-r', label: 'Command R' },
-    { value: 'command-a-03-2025', label: 'Command A' },
-  ],
-  deepseek: [
-    { value: 'deepseek-chat', label: 'DeepSeek V3' },
-    { value: 'deepseek-reasoner', label: 'DeepSeek R1 (reasoner)' },
-  ],
-  together: [
-    { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B Turbo' },
-    { value: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo', label: 'Llama 3.1 8B Turbo' },
-    { value: 'mistralai/Mixtral-8x7B-Instruct-v0.1', label: 'Mixtral 8x7B' },
-    { value: 'Qwen/Qwen2.5-72B-Instruct-Turbo', label: 'Qwen 2.5 72B Turbo' },
-  ],
-  openrouter: [
-    { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (via OpenRouter)' },
-    { value: 'openai/gpt-4o', label: 'GPT-4o (via OpenRouter)' },
-    { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash (via OpenRouter)' },
-    { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B (via OpenRouter)' },
-  ],
-  ollama: [
-    { value: 'llama3.2', label: 'Llama 3.2' },
-    { value: 'llama3.1', label: 'Llama 3.1' },
-    { value: 'mistral', label: 'Mistral 7B' },
-    { value: 'gemma2', label: 'Gemma 2' },
-    { value: 'qwen2.5', label: 'Qwen 2.5' },
-    { value: 'phi4', label: 'Phi-4' },
-  ],
-}
 
 function ModelSection({ slug }: { slug: string }) {
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
@@ -1144,7 +1062,7 @@ function VercelSection({ slug }: { slug: string }) {
 
           {step === 'token' && (
             <form onSubmit={handleLookup} className="rounded-lg border border-dashed border-border p-4 space-y-3">
-              <p className="text-sm font-medium">Step 1 — Enter your Vercel token</p>
+              <p className="text-sm font-medium">Step 1: Enter your Vercel token</p>
               <input
                 required
                 type="password"
@@ -1154,7 +1072,7 @@ function VercelSection({ slug }: { slug: string }) {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <input
-                placeholder="Team ID (optional — leave blank for personal account)"
+                placeholder="Team ID (optional, leave blank for personal account)"
                 value={tokenForm.teamId}
                 onChange={(e) => setTokenForm((f) => ({ ...f, teamId: e.target.value }))}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -1178,7 +1096,7 @@ function VercelSection({ slug }: { slug: string }) {
           {step === 'project' && lookupResult && (
             <form onSubmit={handleConnect} className="rounded-lg border border-border p-4 space-y-3">
               <div>
-                <p className="text-sm font-medium">Step 2 — Select a project</p>
+                <p className="text-sm font-medium">Step 2: Select a project</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Signed in as {lookupResult.user.username} ({lookupResult.user.email})</p>
               </div>
 
@@ -1506,7 +1424,7 @@ function SlackSection({ slug }: { slug: string }) {
           </div>
           <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1.5 text-xs text-muted-foreground">
             <p className="font-medium text-foreground">Using the integration:</p>
-            <p>• DM your bot directly — every message goes through the agent loop.</p>
+            <p>• DM your bot directly. Every message goes through the agent loop.</p>
             <p>• Mention the bot in any channel where it&apos;s added.</p>
             <p>• Replies stream back in the same thread.</p>
           </div>
@@ -1523,7 +1441,7 @@ function SlackSection({ slug }: { slug: string }) {
           <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 space-y-1.5 text-xs text-blue-700 dark:text-blue-300">
             <p className="font-medium">Setup in 3 steps:</p>
             <p>1. Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="underline">api.slack.com/apps</a> → Create New App → From Scratch</p>
-            <p>2. Add OAuth scopes: <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">chat:write</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">im:history</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">im:read</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">channels:history</code> — then install to your workspace.</p>
+            <p>2. Add OAuth scopes: <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">chat:write</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">im:history</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">im:read</code>, <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">channels:history</code>, then install to your workspace.</p>
             <p>3. For Socket Mode (no public URL needed): enable Socket Mode, generate an App-Level Token with <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">connections:write</code>.</p>
           </div>
 
@@ -1634,7 +1552,7 @@ function WhatsAppSection({ slug }: { slug: string }) {
               <span className="text-lg">💬</span>
             </div>
             <div>
-              <p className="text-sm font-medium">Connected — {status.fromNumber}</p>
+              <p className="text-sm font-medium">Connected: {status.fromNumber}</p>
               {status.connectedAt && (
                 <p className="text-xs text-muted-foreground">
                   Since {new Date(status.connectedAt).toLocaleDateString()}

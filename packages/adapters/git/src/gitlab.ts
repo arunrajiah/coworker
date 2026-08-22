@@ -87,8 +87,12 @@ export class GitLabAdapter implements GitAdapter {
   }
 
   verifyWebhook(body: string, signature: string, secret: string): boolean {
-    // GitLab uses X-Gitlab-Token header (plain token, not HMAC)
-    return timingSafeEqual(Buffer.from(signature), Buffer.from(secret))
+    // GitLab uses X-Gitlab-Token header (plain token, not HMAC).
+    // timingSafeEqual throws on unequal lengths, so guard first.
+    const a = Buffer.from(signature)
+    const b = Buffer.from(secret)
+    if (a.length !== b.length) return false
+    return timingSafeEqual(a, b)
   }
 
   parseWebhookEvent(headers: Record<string, string>, body: string): WebhookEvent {

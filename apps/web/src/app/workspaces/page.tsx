@@ -117,7 +117,7 @@ export default function WorkspacesPage() {
           <h1 className="text-2xl font-semibold">Meet your new coworker</h1>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
             They&apos;ll manage tasks, remember your context, and keep working while you sleep.
-            First — what kind of work do you do?
+            First, what kind of work do you do?
           </p>
         </div>
 
@@ -189,7 +189,7 @@ export default function WorkspacesPage() {
                 ))}
                 {FOUNDER_TEMPLATES[templateType].defaultSkills.length === 0 &&
                   FOUNDER_TEMPLATES[templateType].defaultAutopilotRules.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Standard coworker setup — add skills as you go.</p>
+                    <p className="text-sm text-muted-foreground">Standard coworker setup. Add skills as you go.</p>
                   )}
               </div>
             </div>

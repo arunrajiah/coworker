@@ -266,7 +266,7 @@ export function TaskDetailModal({ task, slug, onClose, onUpdated, onDeleted }: T
               <option value="">No spec linked</option>
               {specs.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.type === 'requirement' ? 'REQ' : s.type === 'blueprint' ? 'BLU' : 'FB'} — {s.title}
+                  {s.type === 'requirement' ? 'REQ' : s.type === 'blueprint' ? 'BLU' : 'FB'} · {s.title}
                 </option>
               ))}
             </select>

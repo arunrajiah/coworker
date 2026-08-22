@@ -100,13 +100,15 @@ gitRoutes.post('/:connectionId/sync', async (c) => {
   let updated = 0
 
   for (const issue of issues) {
-    const existing = await db.query.tasks.findFirst({
-      where: and(
-        eq(tasks.workspaceId, workspaceId),
-        eq(tasks.gitConnectionId, connectionId),
-        eq(tasks.gitIssueNumber, issue.number)
-      ),
-    })
+    const existing = await withWorkspace(db, workspaceId, async (tx) =>
+      tx.query.tasks.findFirst({
+        where: and(
+          eq(tasks.workspaceId, workspaceId),
+          eq(tasks.gitConnectionId, connectionId),
+          eq(tasks.gitIssueNumber, issue.number)
+        ),
+      })
+    )
 
     const issueStatus = issue.state === 'closed' ? 'done' : 'backlog'
 

@@ -80,21 +80,22 @@ git clone https://github.com/arunrajiah/coworker
 cd coworker
 cp .env.example .env
 
-# 2. Add your LLM key (Anthropic or OpenAI — at least one required)
+# 2. Add your LLM key (any supported provider; Ollama needs no key)
 # Edit .env: ANTHROPIC_API_KEY=sk-ant-... or OPENAI_API_KEY=sk-...
 
-# 3. Generate an auth secret
+# 3. Generate an auth secret (optional for local trials, required for production)
 openssl rand -hex 32   # paste as AUTH_SECRET in .env
 
-# 4. Start everything
-docker compose -f infra/docker/docker-compose.oss.yml up -d
+# 4. Start everything (migrations run automatically before the API starts)
+docker compose --env-file .env -f infra/docker/docker-compose.oss.yml up -d --build
 
-# 5. Run migrations
-docker compose -f infra/docker/docker-compose.oss.yml exec api \
-  node -e "import('./src/migrate.js')"
+# 5. Open http://localhost:3000
+```
 
-# 6. Open
-open http://localhost:3000
+Works the same on macOS, Linux, and Windows (Docker Desktop with WSL2). On Windows, run the commands from a WSL2 shell or replace `cp` with `copy`. Not sure your machine is ready? Run the preflight check:
+
+```bash
+node scripts/doctor.mjs
 ```
 
 ---

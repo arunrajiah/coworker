@@ -24,16 +24,31 @@ const TEMPLATE_ICONS: Record<string, string> = {
   general: '✦',
 }
 
-const navItems = [
-  { href: '', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { href: 'board', label: 'Board', icon: Kanban },
-  { href: 'chat', label: 'Chat', icon: MessageSquare },
-  { href: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { href: 'specs', label: 'Specs', icon: FileText },
-  { href: 'autopilot', label: 'Autopilot', icon: Moon },
-  { href: 'memory', label: 'Memory', icon: Brain },
-  { href: 'skills', label: 'Skills', icon: Sparkles },
-  { href: 'settings', label: 'Settings', icon: Settings },
+const navSections: { title: string | null; items: { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] }[] = [
+  {
+    title: null,
+    items: [
+      { href: '', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+      { href: 'chat', label: 'Chat', icon: MessageSquare },
+    ],
+  },
+  {
+    title: 'Work',
+    items: [
+      { href: 'board', label: 'Board', icon: Kanban },
+      { href: 'tasks', label: 'Tasks', icon: CheckSquare },
+      { href: 'specs', label: 'Specs', icon: FileText },
+    ],
+  },
+  {
+    title: 'Coworker',
+    items: [
+      { href: 'autopilot', label: 'Autopilot', icon: Moon },
+      { href: 'memory', label: 'Memory', icon: Brain },
+      { href: 'skills', label: 'Skills', icon: Sparkles },
+      { href: 'settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ]
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -116,69 +131,78 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-52 border-r border-border flex flex-col shrink-0 bg-muted/20">
+      <aside className="w-56 border-r border-border flex flex-col shrink-0 bg-muted/30">
 
         {/* Workspace identity */}
-        <div className="px-3 py-4 border-b border-border">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl leading-none">{templateIcon}</span>
+        <div className="px-3 pt-4 pb-3">
+          <Link
+            href="/workspaces"
+            title="Switch workspace"
+            className="flex items-center gap-2.5 rounded-xl px-2 py-2 -mx-0.5 hover:bg-background/80 transition-colors group"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 text-base leading-none shrink-0">
+              {templateIcon}
+            </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{workspace?.name ?? '…'}</p>
-              <p className="text-xs text-muted-foreground">{templateName}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{templateName}</p>
             </div>
-          </div>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          </Link>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-2 space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon, exact }) => {
-            const fullHref = href ? `/w/${slug}/${href}` : `/w/${slug}`
-            const active = exact ? pathname === fullHref : pathname.startsWith(`/w/${slug}/${href}`)
-            return (
-              <Link
-                key={href}
-                href={fullHref}
-                className={cn(
-                  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
-                  active
-                    ? 'bg-background shadow-sm text-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="flex-1">{label}</span>
-                {label === 'Tasks' && activeTaskCount !== null && activeTaskCount > 0 && (
-                  <span className="ml-auto text-[10px] font-medium leading-none px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                    {activeTaskCount > 99 ? '99+' : activeTaskCount}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
+        <nav className="flex-1 px-2 pb-2 space-y-4 overflow-y-auto">
+          {navSections.map((section, si) => (
+            <div key={si} className="space-y-0.5">
+              {section.title && (
+                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  {section.title}
+                </p>
+              )}
+              {section.items.map(({ href, label, icon: Icon, exact }) => {
+                const fullHref = href ? `/w/${slug}/${href}` : `/w/${slug}`
+                const active = exact ? pathname === fullHref : pathname.startsWith(`/w/${slug}/${href}`)
+                return (
+                  <Link
+                    key={href}
+                    href={fullHref}
+                    className={cn(
+                      'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
+                      active
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:bg-background/80 hover:text-foreground'
+                    )}
+                  >
+                    <Icon className={cn('h-4 w-4 shrink-0', active && 'text-primary')} />
+                    <span className="flex-1">{label}</span>
+                    {label === 'Tasks' && activeTaskCount !== null && activeTaskCount > 0 && (
+                      <span className="ml-auto text-[10px] font-medium leading-none px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {activeTaskCount > 99 ? '99+' : activeTaskCount}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
-        {/* User / switch workspace */}
-        <div className="p-2 border-t border-border space-y-0.5">
+        {/* Footer: model, user, theme */}
+        <div className="p-2 border-t border-border space-y-1">
           {workspace?.llmModel && (
-            <div className="px-3 py-1.5 flex items-center gap-1.5">
+            <div className="mx-1 flex items-center gap-1.5 rounded-lg bg-background/70 border border-border/60 px-2.5 py-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">
+              <span className="text-[11px] text-muted-foreground truncate">
                 {workspace.llmModel.split('/').pop()?.replace(/-\d{8}$/, '') ?? workspace.llmModel}
               </span>
             </div>
           )}
-          <Link
-            href="/workspaces"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors"
-          >
-            <ChevronDown className="h-3.5 w-3.5 rotate-90" />
-            Switch workspace
-          </Link>
-
           <div className="flex items-center gap-1">
             <button
               onClick={handleSignOut}
-              className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors"
+              title="Sign out"
+              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors min-w-0"
             >
               <LogOut className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{user?.email ?? 'Sign out'}</span>
@@ -186,7 +210,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
             <button
               onClick={toggleTheme}
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="p-2 rounded-lg text-muted-foreground hover:bg-background/60 hover:text-foreground transition-colors shrink-0"
+              className="p-2 rounded-lg text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors shrink-0"
             >
               {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
             </button>

@@ -3,7 +3,7 @@ import type { Redis } from 'ioredis'
 import type { DbClient } from '@coworker/db'
 import { eq, and } from 'drizzle-orm'
 import { autopilotRules, workspaceMembers } from '@coworker/db'
-import { withWorkspace } from '@coworker/db'
+import { withWorkspace, withSystemContext } from '@coworker/db'
 
 export interface AutopilotJobData {
   ruleId: string
@@ -20,12 +20,14 @@ export async function syncScheduledRules(
   autopilotQueue: Queue<AutopilotJobData>
 ): Promise<void> {
   // Load all active schedule-triggered rules across all workspaces
-  const rules = await db.query.autopilotRules.findMany({
-    where: and(
-      eq(autopilotRules.triggerType, 'schedule'),
-      eq(autopilotRules.isActive, true)
-    ),
-  })
+  const rules = await withSystemContext(db, async (tx) =>
+    tx.query.autopilotRules.findMany({
+      where: and(
+        eq(autopilotRules.triggerType, 'schedule'),
+        eq(autopilotRules.isActive, true)
+      ),
+    })
+  )
 
   // Get existing repeatable jobs
   const existing = await autopilotQueue.getRepeatableJobs()
@@ -96,13 +98,15 @@ export async function handleGitEvent(
 
   if (!triggerType) return
 
-  const rules = await db.query.autopilotRules.findMany({
-    where: and(
-      eq(autopilotRules.workspaceId, workspaceId),
-      eq(autopilotRules.triggerType, triggerType as any),
-      eq(autopilotRules.isActive, true)
-    ),
-  })
+  const rules = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.query.autopilotRules.findMany({
+      where: and(
+        eq(autopilotRules.workspaceId, workspaceId),
+        eq(autopilotRules.triggerType, triggerType as any),
+        eq(autopilotRules.isActive, true)
+      ),
+    })
+  )
 
   if (rules.length === 0) return
 

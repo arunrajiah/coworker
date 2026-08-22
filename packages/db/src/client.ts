@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
+import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
 import * as schema from './schema/index'
 
@@ -24,7 +25,21 @@ export async function withWorkspace<T>(
   fn: (db: DbClient) => Promise<T>
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(`SET LOCAL app.current_workspace_id = '${workspaceId}'`)
+    // set_config with a bound parameter; SET LOCAL cannot take parameters.
+    await tx.execute(sql`SELECT set_config('app.current_workspace_id', ${workspaceId}, true)`)
+    return fn(tx as unknown as DbClient)
+  })
+}
+
+// Explicit cross-workspace access for trusted system jobs (schedulers, lookups
+// where the workspace is not yet known). Tenant tables FORCE row level security,
+// so any query outside withWorkspace/withSystemContext returns no rows.
+export async function withSystemContext<T>(
+  db: DbClient,
+  fn: (db: DbClient) => Promise<T>
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.system_context', 'on', true)`)
     return fn(tx as unknown as DbClient)
   })
 }

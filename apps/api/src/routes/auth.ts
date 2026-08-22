@@ -6,12 +6,14 @@ import { users, sessions, magicLinks } from '@coworker/db'
 import { getContainer } from '../container.js'
 import { signToken, generateMagicToken } from '../lib/auth.js'
 import { getEnv } from '@coworker/config'
+import { rateLimit } from '../middleware/rate-limit.js'
 
 export const authRoutes = new Hono()
 
 // Send magic link — or sign in directly when LOCAL_AUTH=true
 authRoutes.post(
   '/magic-link/send',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'magic-send' }),
   zValidator('json', z.object({ email: z.string().email() })),
   async (c) => {
     const { email } = c.req.valid('json')
@@ -54,6 +56,7 @@ authRoutes.post(
 // Verify magic link token
 authRoutes.post(
   '/magic-link/verify',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 30, keyPrefix: 'magic-verify' }),
   zValidator('json', z.object({ token: z.string() })),
   async (c) => {
     const { token } = c.req.valid('json')

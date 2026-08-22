@@ -8,3 +8,7 @@ dist
 uploads/
 *.log
 .DS_Store
+
+# Claude Code local files (never commit)
+CLAUDE.md
+.claude/

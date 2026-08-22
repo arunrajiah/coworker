@@ -89,7 +89,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
         <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
           {threads.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-8 px-3">
-              Start a conversation — your coworker remembers everything.
+              Start a conversation. Your coworker remembers everything.
             </p>
           )}
           {threads.map((thread) => {

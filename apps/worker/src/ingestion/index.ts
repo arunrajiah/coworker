@@ -23,7 +23,9 @@ export async function processFile(
   const { workspaceId, fileId } = data
   const env = getEnv()
 
-  const file = await db.query.files.findFirst({ where: eq(files.id, fileId) })
+  const file = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.query.files.findFirst({ where: eq(files.id, fileId) })
+  )
   if (!file) throw new Error(`File ${fileId} not found`)
 
   const publish = (status: string) =>

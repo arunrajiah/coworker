@@ -94,7 +94,7 @@ function LoginPageInner() {
               <div>
                 <h2 className="text-2xl font-semibold">Sign in</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {LOCAL_AUTH ? 'Local mode — enter any email to continue.' : 'No password. We\'ll send you a link.'}
+                  {LOCAL_AUTH ? 'Local mode: enter any email to continue.' : 'No password. We\'ll send you a link.'}
                 </p>
               </div>
 

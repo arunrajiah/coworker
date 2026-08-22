@@ -23,7 +23,7 @@ const envSchema = z.object({
   TOGETHER_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
 
-  // Optional explicit override — supports "provider:model" syntax (e.g. "anthropic:claude-sonnet-4-5")
+  // Optional explicit override — supports "provider:model" syntax (e.g. "anthropic:claude-sonnet-4-6")
   LLM_PROVIDER: z.string().optional(),
   LLM_MODEL: z.string().optional(),
 

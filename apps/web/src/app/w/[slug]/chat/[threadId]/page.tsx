@@ -10,126 +10,14 @@ import { useAuthStore } from '@/store/auth'
 import { cn, relativeTime } from '@/lib/utils'
 import { nanoid } from 'nanoid'
 import { MarkdownContent } from '@/components/MarkdownContent'
-import { FOUNDER_TEMPLATES } from '@coworker/core'
+import {
+  FOUNDER_TEMPLATES,
+  PROVIDER_LABELS,
+  PROVIDER_MODELS,
+  estimateCostUsd,
+  formatCostUsd,
+} from '@coworker/core'
 import type { TemplateType } from '@coworker/core'
-
-// Token cost per 1M tokens (output pricing — conservative estimate)
-const COST_PER_1M: Partial<Record<string, number>> = {
-  'claude-sonnet-4-5': 15,
-  'claude-opus-4-5': 75,
-  'claude-haiku-4-5': 1.25,
-  'claude-3-5-sonnet-20241022': 15,
-  'claude-3-5-haiku-20241022': 1.25,
-  'gpt-4o': 15,
-  'gpt-4o-mini': 0.6,
-  'gpt-4-turbo': 30,
-  'o1': 60,
-  'o3-mini': 4.4,
-  'gemini-2.0-flash': 0.7,
-  'gemini-2.0-pro': 10,
-  'gemini-1.5-pro': 10.5,
-  'gemini-1.5-flash': 0.35,
-  'llama-3.3-70b-versatile': 0.59,
-  'llama-3.1-8b-instant': 0.05,
-  'mistral-large-latest': 6,
-  'mistral-small-latest': 0.6,
-  'grok-3': 15,
-  'grok-3-mini': 0.3,
-  'command-r-plus': 2.5,
-  'command-r': 0.075,
-  'deepseek-chat': 1.1,
-  'deepseek-reasoner': 2.19,
-}
-
-const PROVIDER_LABELS: Record<LLMProvider, string> = {
-  anthropic: 'Anthropic',
-  openai: 'OpenAI',
-  google: 'Google',
-  groq: 'Groq',
-  mistral: 'Mistral',
-  xai: 'xAI',
-  cohere: 'Cohere',
-  deepseek: 'DeepSeek',
-  together: 'Together',
-  openrouter: 'OpenRouter',
-  ollama: 'Ollama',
-}
-
-const PROVIDER_MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
-  anthropic: [
-    { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
-    { value: 'claude-opus-4-5', label: 'Claude Opus 4.5' },
-    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-  ],
-  openai: [
-    { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'o1', label: 'o1' },
-    { value: 'o3-mini', label: 'o3-mini' },
-  ],
-  google: [
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'gemini-2.0-pro', label: 'Gemini 2.0 Pro' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-  ],
-  groq: [
-    { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
-    { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B' },
-    { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-    { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
-  ],
-  mistral: [
-    { value: 'mistral-large-latest', label: 'Mistral Large' },
-    { value: 'mistral-small-latest', label: 'Mistral Small' },
-    { value: 'codestral-latest', label: 'Codestral' },
-    { value: 'open-mistral-nemo', label: 'Mistral Nemo' },
-  ],
-  xai: [
-    { value: 'grok-3', label: 'Grok 3' },
-    { value: 'grok-3-mini', label: 'Grok 3 Mini' },
-    { value: 'grok-2-1212', label: 'Grok 2' },
-  ],
-  cohere: [
-    { value: 'command-r-plus', label: 'Command R+' },
-    { value: 'command-r', label: 'Command R' },
-    { value: 'command-a-03-2025', label: 'Command A' },
-  ],
-  deepseek: [
-    { value: 'deepseek-chat', label: 'DeepSeek V3' },
-    { value: 'deepseek-reasoner', label: 'DeepSeek R1' },
-  ],
-  together: [
-    { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B' },
-    { value: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo', label: 'Llama 3.1 8B' },
-    { value: 'Qwen/Qwen2.5-72B-Instruct-Turbo', label: 'Qwen 2.5 72B' },
-  ],
-  openrouter: [
-    { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
-    { value: 'openai/gpt-4o', label: 'GPT-4o' },
-    { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
-  ],
-  ollama: [
-    { value: 'llama3.2', label: 'Llama 3.2' },
-    { value: 'llama3.1', label: 'Llama 3.1' },
-    { value: 'mistral', label: 'Mistral 7B' },
-    { value: 'gemma2', label: 'Gemma 2' },
-    { value: 'qwen2.5', label: 'Qwen 2.5' },
-    { value: 'phi4', label: 'Phi-4' },
-  ],
-}
-
-function estimateCost(tokens: number, model: string): string | null {
-  const rate = COST_PER_1M[model]
-  if (!rate) return null
-  const cost = (tokens / 1_000_000) * rate
-  if (cost < 0.001) return '<$0.001'
-  return `$${cost.toFixed(4)}`
-}
 
 export default function ThreadPage() {
   const params = useParams()
@@ -225,9 +113,9 @@ export default function ThreadPage() {
         const spend = (event.spendUsd as number).toFixed(4)
         const budget = (event.budgetUsd as number).toFixed(2)
         if (pct >= 100) {
-          toast.error(`Budget exceeded — $${spend} spent of $${budget} monthly limit`, { duration: 8000 })
+          toast.error(`Budget exceeded: $${spend} spent of $${budget} monthly limit`, { duration: 8000 })
         } else {
-          toast.warning(`Budget alert — ${pct}% of $${budget} monthly limit used ($${spend})`, { duration: 6000 })
+          toast.warning(`Budget alert: ${pct}% of $${budget} monthly limit used ($${spend})`, { duration: 6000 })
         }
       } else if (event.type === 'agent:error') {
         setAgentThinking(false)
@@ -392,7 +280,7 @@ export default function ThreadPage() {
       {isAutopilotThread && (
         <div className="border-b border-border px-4 py-2.5 flex items-center gap-2 bg-primary/5">
           <Moon className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium text-primary">Autopilot thread — managed by your coworker</span>
+          <span className="text-xs font-medium text-primary">Autopilot thread: managed by your coworker</span>
         </div>
       )}
 
@@ -726,10 +614,23 @@ function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user'
   const [copied, setCopied] = useState(false)
 
-  const meta = message.metadata as { tokensUsed?: number; model?: string; provider?: string } | null
+  const meta = message.metadata as {
+    tokensUsed?: number
+    promptTokens?: number
+    completionTokens?: number
+    costUsd?: number
+    model?: string
+    provider?: string
+  } | null
   const tokensUsed = meta?.tokensUsed ?? null
   const modelUsed = meta?.model ?? null
-  const costStr = tokensUsed && modelUsed ? estimateCost(tokensUsed, modelUsed) : null
+  // Prefer the exact cost the worker computed; estimate only for old messages that predate costUsd.
+  const costUsd =
+    meta?.costUsd ??
+    (meta?.model && meta.promptTokens != null && meta.completionTokens != null
+      ? estimateCostUsd(meta.model, meta.provider ?? '', meta.promptTokens, meta.completionTokens)
+      : null)
+  const costStr = costUsd != null ? formatCostUsd(costUsd) : null
 
   async function handleCopy() {
     await navigator.clipboard.writeText(message.content)

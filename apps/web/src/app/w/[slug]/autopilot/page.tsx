@@ -172,7 +172,7 @@ export default function AutopilotPage() {
           <div>
             <h1 className="text-xl font-semibold">Autopilot</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Rules that run your coworker automatically — on a schedule or triggered by events
+              Rules that run your coworker automatically, on a schedule or triggered by events
             </p>
           </div>
           <button
@@ -508,7 +508,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       <div>
         <p className="text-sm font-medium">No autopilot rules yet</p>
         <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-          Rules run your coworker on a schedule or when something happens — without you having to ask.
+          Rules run your coworker on a schedule or when something happens, without you having to ask.
         </p>
       </div>
       <div className="space-y-2 text-left max-w-sm mx-auto">

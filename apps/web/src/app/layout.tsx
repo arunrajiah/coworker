@@ -3,7 +3,7 @@ import { Toaster } from 'sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Coworker — AI for Founders',
+  title: 'Coworker: AI for Founders',
   description: 'Your AI coworker. Manages tasks, remembers context, works on autopilot.',
 }
 

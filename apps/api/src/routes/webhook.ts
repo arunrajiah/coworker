@@ -59,13 +59,15 @@ webhookRoutes.post('/git/:connectionId', async (c) => {
       const isClosed = issueState === 'closed' || issueState === 'resolved'
       const taskStatus = isClosed ? 'done' : 'backlog'
 
-      const existing = await db.query.tasks.findFirst({
-        where: and(
-          eq(tasks.workspaceId, workspaceId),
-          eq(tasks.gitConnectionId, connectionId),
-          eq(tasks.gitIssueNumber, issueNumber)
-        ),
-      })
+      const existing = await withWorkspace(db, workspaceId, async (tx) =>
+        tx.query.tasks.findFirst({
+          where: and(
+            eq(tasks.workspaceId, workspaceId),
+            eq(tasks.gitConnectionId, connectionId),
+            eq(tasks.gitIssueNumber, issueNumber)
+          ),
+        })
+      )
 
       if (existing) {
         const [updated] = await withWorkspace(db, workspaceId, async (tx) =>
@@ -157,18 +159,19 @@ webhookRoutes.post('/whatsapp/:workspaceId', async (c) => {
     return c.body(null, 204) // silently ignore unknown workspaces
   }
 
-  // Validate Twilio signature (optional but recommended for production)
-  const twilioSignature = c.req.header('X-Twilio-Signature') ?? ''
-  if (twilioSignature) {
-    try {
-      const { validateRequest } = await import('twilio')
-      const url = `${process.env.API_URL ?? 'http://localhost:3001'}/webhooks/whatsapp/${workspaceId}`
-      const params = Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v)]))
-      const valid = validateRequest(conn.authToken, twilioSignature, url, params)
-      if (!valid) return c.text('Forbidden', 403)
-    } catch {
-      // If twilio validation fails to import, skip validation
-    }
+  // Validate the Twilio signature. Twilio signs every webhook request, so a
+  // missing or invalid signature means the request did not come from Twilio.
+  const twilioSignature = c.req.header('X-Twilio-Signature')
+  if (!twilioSignature) return c.text('Forbidden', 403)
+  try {
+    const { validateRequest } = await import('twilio')
+    const url = `${process.env.API_URL ?? 'http://localhost:3001'}/webhooks/whatsapp/${workspaceId}`
+    const params = Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v)]))
+    const valid = validateRequest(conn.authToken, twilioSignature, url, params)
+    if (!valid) return c.text('Forbidden', 403)
+  } catch (err) {
+    console.error('Twilio signature validation unavailable, rejecting webhook:', err)
+    return c.text('Forbidden', 403)
   }
 
   // Get or create a stable thread ID for this WhatsApp number

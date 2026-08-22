@@ -25,6 +25,18 @@ export type NewMemory = typeof memories.$inferInsert
 export const VECTOR_SETUP_SQL = `
   CREATE EXTENSION IF NOT EXISTS vector;
 
+  -- The base migration creates embedding as text; convert it so the vector index works.
+  DO $$ BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'tenant' AND table_name = 'memories'
+        AND column_name = 'embedding' AND data_type = 'text'
+    ) THEN
+      ALTER TABLE tenant.memories
+        ALTER COLUMN embedding TYPE vector(1536) USING NULLIF(embedding, '')::vector;
+    END IF;
+  END $$;
+
   ALTER TABLE tenant.memories
     ADD COLUMN IF NOT EXISTS embedding vector(1536);
 

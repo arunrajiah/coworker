@@ -17,15 +17,17 @@ export async function retrieveRelevantMemories(
     const { embedding } = await embed({ model: embeddingModel, value: query })
     const vectorStr = `[${embedding.join(',')}]`
 
-    // Raw SQL for pgvector similarity search
-    const results = await db.execute(
-      sql`
-        SELECT content
-        FROM tenant.memories
-        WHERE workspace_id = ${workspaceId}::uuid
-        ORDER BY embedding <=> ${vectorStr}::vector
-        LIMIT ${limit}
-      `
+    // Raw SQL for pgvector similarity search (inside withWorkspace for RLS)
+    const results = await withWorkspace(db, workspaceId, async (tx) =>
+      tx.execute(
+        sql`
+          SELECT content
+          FROM tenant.memories
+          WHERE workspace_id = ${workspaceId}::uuid
+          ORDER BY embedding <=> ${vectorStr}::vector
+          LIMIT ${limit}
+        `
+      )
     )
 
     return (results as any[]).map((r: any) => r.content as string)
@@ -57,11 +59,13 @@ export async function saveMemory(
     const { embedding } = await embed({ model: embeddingModel, value: content })
     const vectorStr = `[${embedding.join(',')}]`
 
-    await db.execute(
-      sql`
-        INSERT INTO tenant.memories (id, workspace_id, content, embedding, source_type, source_id, metadata)
-        VALUES (gen_random_uuid(), ${workspaceId}::uuid, ${content}, ${vectorStr}::vector, ${sourceType}, ${sourceId ?? null}::uuid, ${metadata ? JSON.stringify(metadata) : null}::jsonb)
-      `
+    await withWorkspace(db, workspaceId, async (tx) =>
+      tx.execute(
+        sql`
+          INSERT INTO tenant.memories (id, workspace_id, content, embedding, source_type, source_id, metadata)
+          VALUES (gen_random_uuid(), ${workspaceId}::uuid, ${content}, ${vectorStr}::vector, ${sourceType}, ${sourceId ?? null}::uuid, ${metadata ? JSON.stringify(metadata) : null}::jsonb)
+        `
+      )
     )
   } catch {
     // Save without embedding if vector fails

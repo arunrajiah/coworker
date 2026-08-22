@@ -1,5 +1,5 @@
 -- Add slack to the message channel enum
-ALTER TYPE "tenant"."message_channel" ADD VALUE IF NOT EXISTS 'slack';
+ALTER TYPE "public"."message_channel" ADD VALUE IF NOT EXISTS 'slack';
 
 CREATE TABLE IF NOT EXISTS "platform"."slack_connections" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
