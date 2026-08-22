@@ -30,7 +30,7 @@ export function getContainer(): Container {
     const db = createClient(env.DATABASE_URL)
     const redis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null })
 
-    const storage = new LocalFileStorage(env.UPLOAD_DIR, env.API_URL)
+    const storage = new LocalFileStorage(env.UPLOAD_DIR, env.API_URL, env.AUTH_SECRET)
 
     const email: IEmailProvider =
       env.SMTP_URL

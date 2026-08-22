@@ -59,17 +59,48 @@ app.route('/api/workspaces/:workspaceSlug/usage', usageRoutes)
 app.route('/api/workspaces/:workspaceSlug/specs', specRoutes)
 app.route('/webhooks', webhookRoutes)
 
-// Static file serving for uploads (local storage)
+// Static file serving for uploads (local storage).
+// URLs are signed (HMAC over key + expiry with AUTH_SECRET); unsigned or expired
+// links are rejected, so knowing a storage key alone is not enough to fetch a file.
 app.get('/uploads/*', async (c) => {
   const { storage } = await import('./container.js').then((m) => m.getContainer())
-  const key = c.req.param('*')
+  const { verifyUploadSignature } = await import('@coworker/adapter-storage-local')
+  // Hono does not expose '*' as a named param; take the key from the path.
+  const key = decodeURIComponent(c.req.path.replace(/^\/uploads\//, ''))
+  if (!key) return c.json({ error: 'Not found' }, 404)
+
+  if (!verifyUploadSignature(key, c.req.query('exp'), c.req.query('sig'), env.AUTH_SECRET)) {
+    return c.json({ error: 'Invalid or expired link' }, 403)
+  }
+
   try {
     const buffer = await (storage as any).download(key)
-    return new Response(buffer)
+    return new Response(buffer, {
+      headers: {
+        'Content-Type': MIME_BY_EXT[key.slice(key.lastIndexOf('.')).toLowerCase()] ?? 'application/octet-stream',
+        'Cache-Control': 'private, max-age=3600',
+        'Content-Disposition': 'inline',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    })
   } catch {
     return c.json({ error: 'Not found' }, 404)
   }
 })
+
+const MIME_BY_EXT: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/plain; charset=utf-8',
+  '.csv': 'text/csv; charset=utf-8',
+  '.json': 'application/json',
+}
 
 const server = createAdaptorServer({ fetch: app.fetch })
 

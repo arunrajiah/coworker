@@ -137,10 +137,12 @@ integrationRoutes.get('/files', async (c) => {
   )
 
   return c.json(
-    fileList.map((f) => ({
-      ...f,
-      url: storage.getUrl(f.storageKey),
-    }))
+    await Promise.all(
+      fileList.map(async (f) => ({
+        ...f,
+        url: await storage.getUrl(f.storageKey),
+      }))
+    )
   )
 })
 
