@@ -1,6 +1,6 @@
 import { generateText, type CoreMessage } from 'ai'
 import { eq, and, asc, desc, inArray } from 'drizzle-orm'
-import { messages, agentRuns, skills, tasks, workspaces, files } from '@coworker/db'
+import { messages, agentRuns, skills, tasks, workspaces, files, threadSettings } from '@coworker/db'
 import type { DbClient } from '@coworker/db'
 import { withWorkspace } from '@coworker/db'
 import type { Redis } from 'ioredis'
@@ -131,11 +131,19 @@ export async function executeAgentRun(
     }))
     llmMessages.push({ role: 'user', content: userInput + fileContext })
 
-    const { chatModel } = getLLMProvider(
-      workspace.llmProvider
+    // Model resolution: thread override > workspace default > server default
+    const threadSetting = await withWorkspace(db, workspaceId, async (tx) =>
+      tx.query.threadSettings.findFirst({
+        where: and(eq(threadSettings.workspaceId, workspaceId), eq(threadSettings.threadId, threadId)),
+      })
+    )
+    const modelOverride = threadSetting?.llmProvider
+      ? { provider: threadSetting.llmProvider as import('./provider.js').ProviderName, model: threadSetting.llmModel ?? undefined }
+      : workspace.llmProvider
         ? { provider: workspace.llmProvider as import('./provider.js').ProviderName, model: workspace.llmModel ?? undefined }
         : undefined
-    )
+
+    const { chatModel } = getLLMProvider(modelOverride)
 
     const tools = {
       create_task: createTaskTool(db, redis, workspaceId, userId),
@@ -202,11 +210,8 @@ export async function executeAgentRun(
     const completionTokens = result.usage.completionTokens
     const durationMs = Date.now() - startedAt.getTime()
 
-    const providerConfig = workspace.llmProvider
-      ? { provider: workspace.llmProvider as import('./provider.js').ProviderName, model: workspace.llmModel ?? undefined }
-      : undefined
-    const resolvedProvider = providerConfig?.provider ?? (detectDefaultProviderName() ?? 'unknown')
-    const resolvedModel = providerConfig?.model ?? DEFAULT_MODELS[resolvedProvider as import('./provider.js').ProviderName] ?? 'unknown'
+    const resolvedProvider = modelOverride?.provider ?? (detectDefaultProviderName() ?? 'unknown')
+    const resolvedModel = modelOverride?.model ?? DEFAULT_MODELS[resolvedProvider as import('./provider.js').ProviderName] ?? 'unknown'
     const costUsd = estimateCostUsd(resolvedModel, resolvedProvider, promptTokens, completionTokens)
 
     // Save assistant message with token + model metadata for UI display

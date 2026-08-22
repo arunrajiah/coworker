@@ -43,12 +43,20 @@ export default function ThreadPage() {
   const [loadingWorkspaceFiles, setLoadingWorkspaceFiles] = useState(false)
   const agentSlowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Model switcher state
-  const [currentProvider, setCurrentProvider] = useState<LLMProvider | null>(null)
-  const [currentModel, setCurrentModel] = useState<string | null>(null)
+  // Model switcher state. The workspace default and the per-thread override are
+  // tracked separately; the thread override wins when set.
+  const [wsProvider, setWsProvider] = useState<LLMProvider | null>(null)
+  const [wsModel, setWsModel] = useState<string | null>(null)
+  const [threadProvider, setThreadProvider] = useState<LLMProvider | null>(null)
+  const [threadModel, setThreadModel] = useState<string | null>(null)
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const [switchingModel, setSwitchingModel] = useState(false)
   const modelPickerRef = useRef<HTMLDivElement>(null)
+  // Override picked on a brand-new thread before its id exists server-side
+  const pendingOverrideRef = useRef<{ provider: LLMProvider; model: string } | null>(null)
+
+  const currentProvider = threadProvider ?? wsProvider
+  const currentModel = threadProvider ? threadModel : wsModel
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const socketRef = useRef<WorkspaceSocket | null>(null)
@@ -59,10 +67,25 @@ export default function ThreadPage() {
     api.workspaces.get(slug).then((ws) => {
       setWorkspaceId(ws.id)
       setTemplateType(ws.templateType as TemplateType)
-      setCurrentProvider((ws.llmProvider as LLMProvider) ?? null)
-      setCurrentModel(ws.llmModel ?? null)
+      setWsProvider((ws.llmProvider as LLMProvider) ?? null)
+      setWsModel(ws.llmModel ?? null)
     })
   }, [slug])
+
+  // Load this thread's model override (none for brand-new threads)
+  useEffect(() => {
+    setThreadProvider(null)
+    setThreadModel(null)
+    pendingOverrideRef.current = null
+    if (threadId === 'new' || isAutopilotThread) return
+    api.chat
+      .getThreadSettings(slug, threadId)
+      .then((s) => {
+        setThreadProvider(s.llmProvider)
+        setThreadModel(s.llmModel)
+      })
+      .catch(() => {})
+  }, [slug, threadId, isAutopilotThread])
 
   // Close model picker on outside click
   useEffect(() => {
@@ -242,7 +265,16 @@ export default function ThreadPage() {
     ])
 
     try {
-      await api.chat.sendMessage(slug, threadId, content, fileIds.length > 0 ? fileIds : undefined)
+      // A model picked before the thread exists needs the thread id up front,
+      // so mint it client-side and save the override before the first message.
+      let sendThreadId = threadId
+      if (threadId === 'new' && pendingOverrideRef.current) {
+        sendThreadId = nanoid()
+        const { provider, model } = pendingOverrideRef.current
+        await api.chat.setThreadSettings(slug, sendThreadId, provider, model)
+        pendingOverrideRef.current = null
+      }
+      await api.chat.sendMessage(slug, sendThreadId, content, fileIds.length > 0 ? fileIds : undefined)
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
       setInput(content)
@@ -260,11 +292,38 @@ export default function ThreadPage() {
   }
 
   async function handleModelSwitch(provider: LLMProvider, model: string) {
+    // Applies to this thread only; the workspace default is unchanged.
+    if (threadId === 'new') {
+      pendingOverrideRef.current = { provider, model }
+      setThreadProvider(provider)
+      setThreadModel(model)
+      setModelPickerOpen(false)
+      return
+    }
     setSwitchingModel(true)
     try {
-      await api.workspaces.update(slug, { llmProvider: provider, llmModel: model })
-      setCurrentProvider(provider)
-      setCurrentModel(model)
+      await api.chat.setThreadSettings(slug, threadId, provider, model)
+      setThreadProvider(provider)
+      setThreadModel(model)
+      setModelPickerOpen(false)
+    } finally {
+      setSwitchingModel(false)
+    }
+  }
+
+  async function handleModelReset() {
+    if (threadId === 'new') {
+      pendingOverrideRef.current = null
+      setThreadProvider(null)
+      setThreadModel(null)
+      setModelPickerOpen(false)
+      return
+    }
+    setSwitchingModel(true)
+    try {
+      await api.chat.setThreadSettings(slug, threadId, null, null)
+      setThreadProvider(null)
+      setThreadModel(null)
       setModelPickerOpen(false)
     } finally {
       setSwitchingModel(false)
@@ -548,6 +607,7 @@ export default function ThreadPage() {
                     {currentProvider
                       ? `${PROVIDER_LABELS[currentProvider]} · ${currentModel ?? 'default'}`
                       : 'Server default'}
+                    {threadProvider && <span className="text-primary"> · this thread</span>}
                   </span>
                   <ChevronDown className="h-3 w-3" />
                 </button>
@@ -555,7 +615,7 @@ export default function ThreadPage() {
                 {modelPickerOpen && (
                   <div className="absolute bottom-full mb-2 right-0 z-50 w-72 rounded-xl border border-border bg-background shadow-lg overflow-hidden">
                     <div className="px-3 py-2 border-b border-border">
-                      <p className="text-xs font-medium text-muted-foreground">Switch model</p>
+                      <p className="text-xs font-medium text-muted-foreground">Switch model for this thread</p>
                     </div>
                     <div className="max-h-72 overflow-y-auto">
                       {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((p) => (
@@ -583,20 +643,11 @@ export default function ThreadPage() {
                     </div>
                     <div className="px-3 py-2 border-t border-border">
                       <button
-                        onClick={async () => {
-                          setSwitchingModel(true)
-                          try {
-                            await api.workspaces.update(slug, { llmProvider: null, llmModel: null })
-                            setCurrentProvider(null)
-                            setCurrentModel(null)
-                            setModelPickerOpen(false)
-                          } finally {
-                            setSwitchingModel(false)
-                          }
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={handleModelReset}
+                        disabled={!threadProvider}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                       >
-                        Reset to server default
+                        Use workspace default
                       </button>
                     </div>
                   </div>

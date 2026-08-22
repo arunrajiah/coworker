@@ -300,6 +300,15 @@ export const api = {
       ),
     deleteThread: (slug: string, threadId: string) =>
       apiRequest(`/api/workspaces/${slug}/chat/threads/${threadId}`, { method: 'DELETE' }),
+    getThreadSettings: (slug: string, threadId: string) =>
+      apiRequest<{ llmProvider: LLMProvider | null; llmModel: string | null }>(
+        `/api/workspaces/${slug}/chat/threads/${threadId}/settings`
+      ),
+    setThreadSettings: (slug: string, threadId: string, llmProvider: LLMProvider | null, llmModel: string | null) =>
+      apiRequest<{ llmProvider: LLMProvider | null; llmModel: string | null }>(
+        `/api/workspaces/${slug}/chat/threads/${threadId}/settings`,
+        { method: 'PUT', body: JSON.stringify({ llmProvider, llmModel }) }
+      ),
   },
 
   providers: {

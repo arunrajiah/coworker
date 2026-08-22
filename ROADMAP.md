@@ -41,13 +41,13 @@ The core product: a self-hostable AI coworker with tasks, chat, memory, and inte
 - ✅ Automatic fallback chains (if primary key missing, try next)
 
 ### Provider UI ✅
-- ✅ Model switcher in chat (changes the workspace default model)
+- ✅ Model switcher in chat: per-thread override that beats the workspace default, without touching other threads
 - ✅ Provider key status in Settings → AI Model
 - ✅ Token usage + exact cost per message, shown under assistant replies
 - ✅ Monthly budget with in-app alerts at a configurable threshold
 - ✅ Shared model catalog + pricing table in `@coworker/core` (one source of truth for web and worker)
 - ✅ Live provider health probe: Test providers in Settings calls each provider's API to verify the key works, with latency and failure reason
-- 📋 Per-thread model override (today a switch applies workspace-wide)
+- ✅ Per-thread model override (`tenant.thread_settings`; resolution: thread > workspace > server default)
 
 ### Model benchmarking 💡
 - 💡 Side-by-side comparison: same prompt to two models, both outputs shown

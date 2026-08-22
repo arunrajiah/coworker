@@ -99,6 +99,13 @@
       "when": 1787375017466,
       "tag": "0013_opposite_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787377331631,
+      "tag": "0014_thread_settings",
+      "breakpoints": true
     }
   ]
 }

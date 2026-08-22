@@ -40,6 +40,7 @@ const RLS_SETUP_SQL = `
   ALTER TABLE tenant.skills ENABLE ROW LEVEL SECURITY;
   ALTER TABLE tenant.autopilot_rules ENABLE ROW LEVEL SECURITY;
   ALTER TABLE tenant.files ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE tenant.thread_settings ENABLE ROW LEVEL SECURITY;
 
   -- FORCE applies RLS to the table owner too; without it, an owner connection bypasses every policy.
   ALTER TABLE tenant.tasks FORCE ROW LEVEL SECURITY;
@@ -49,6 +50,7 @@ const RLS_SETUP_SQL = `
   ALTER TABLE tenant.skills FORCE ROW LEVEL SECURITY;
   ALTER TABLE tenant.autopilot_rules FORCE ROW LEVEL SECURITY;
   ALTER TABLE tenant.files FORCE ROW LEVEL SECURITY;
+  ALTER TABLE tenant.thread_settings FORCE ROW LEVEL SECURITY;
 
   -- Recreate policies so existing databases pick up definition changes.
   -- Rows are visible when the transaction's workspace context matches, or when the
@@ -56,7 +58,7 @@ const RLS_SETUP_SQL = `
   DO $$
   DECLARE t text;
   BEGIN
-    FOREACH t IN ARRAY ARRAY['tasks','messages','agent_runs','memories','skills','autopilot_rules','files'] LOOP
+    FOREACH t IN ARRAY ARRAY['tasks','messages','agent_runs','memories','skills','autopilot_rules','files','thread_settings'] LOOP
       EXECUTE format('DROP POLICY IF EXISTS workspace_isolation ON tenant.%I', t);
       EXECUTE format(
         'CREATE POLICY workspace_isolation ON tenant.%I USING (

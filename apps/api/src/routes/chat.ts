@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { eq, and, asc, desc } from 'drizzle-orm'
-import { messages, agentRuns } from '@coworker/db'
+import { messages, agentRuns, threadSettings } from '@coworker/db'
 import { getContainer } from '../container.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { workspaceMiddleware } from '../middleware/workspace.js'
@@ -85,6 +85,66 @@ chatRoutes.get('/threads/:threadId/messages', async (c) => {
   return c.json(result)
 })
 
+// Per-thread model override
+const LLM_PROVIDERS = [
+  'anthropic', 'openai', 'google', 'groq', 'mistral', 'ollama',
+  'xai', 'cohere', 'deepseek', 'together', 'openrouter',
+] as const
+
+chatRoutes.get('/threads/:threadId/settings', async (c) => {
+  const workspaceId = c.get('workspaceId')
+  const threadId = c.req.param('threadId')
+  const { db } = getContainer()
+
+  const setting = await withWorkspace(db, workspaceId, async (tx) =>
+    tx.query.threadSettings.findFirst({
+      where: and(eq(threadSettings.workspaceId, workspaceId), eq(threadSettings.threadId, threadId)),
+    })
+  )
+
+  return c.json({ llmProvider: setting?.llmProvider ?? null, llmModel: setting?.llmModel ?? null })
+})
+
+chatRoutes.put(
+  '/threads/:threadId/settings',
+  zValidator(
+    'json',
+    z.object({
+      llmProvider: z.enum(LLM_PROVIDERS).nullable(),
+      llmModel: z.string().max(128).nullable(),
+    })
+  ),
+  async (c) => {
+    const workspaceId = c.get('workspaceId')
+    const threadId = c.req.param('threadId')
+    const { llmProvider, llmModel } = c.req.valid('json')
+    const { db } = getContainer()
+
+    if (!llmProvider) {
+      // Clearing the override removes the row; the thread falls back to the workspace default
+      await withWorkspace(db, workspaceId, async (tx) =>
+        tx
+          .delete(threadSettings)
+          .where(and(eq(threadSettings.workspaceId, workspaceId), eq(threadSettings.threadId, threadId)))
+      )
+      return c.json({ llmProvider: null, llmModel: null })
+    }
+
+    const [row] = await withWorkspace(db, workspaceId, async (tx) =>
+      tx
+        .insert(threadSettings)
+        .values({ workspaceId, threadId, llmProvider, llmModel })
+        .onConflictDoUpdate({
+          target: [threadSettings.workspaceId, threadSettings.threadId],
+          set: { llmProvider, llmModel, updatedAt: new Date() },
+        })
+        .returning()
+    )
+
+    return c.json({ llmProvider: row.llmProvider, llmModel: row.llmModel })
+  }
+)
+
 // Send a message (enqueues agent run)
 chatRoutes.post(
   '/threads/:threadId/messages',
@@ -154,11 +214,14 @@ chatRoutes.delete('/threads/:threadId', async (c) => {
   const threadId = c.req.param('threadId')
   const { db } = getContainer()
 
-  await withWorkspace(db, workspaceId, async (tx) =>
-    tx.delete(messages).where(
+  await withWorkspace(db, workspaceId, async (tx) => {
+    await tx.delete(messages).where(
       and(eq(messages.workspaceId, workspaceId), eq(messages.threadId, threadId))
     )
-  )
+    await tx.delete(threadSettings).where(
+      and(eq(threadSettings.workspaceId, workspaceId), eq(threadSettings.threadId, threadId))
+    )
+  })
 
   return c.json({ ok: true })
 })
