@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Plus, Trash2, ToggleLeft, ToggleRight, Send, CheckCircle2, Loader2, Paperclip, FileText, X, Eye, AlertCircle, Clock, Cpu, GitBranch, Copy, RefreshCw, Unplug, RotateCcw, Triangle, ExternalLink } from 'lucide-react'
-import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation, type LinearConnection, type NotionConnection, type GcalConnection } from '@/lib/api'
+import { api, type Skill, type TelegramConnection, type WorkspaceFile, type ExtractedFileContent, type LLMProvider, type ProviderProbeResult, type Workspace, type GitConnection, type GitProvider, type VercelConnection, type VercelDeployment, type WorkspaceMember, type WorkspaceInvitation, type LinearConnection, type NotionConnection, type GcalConnection } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn } from '@/lib/utils'
@@ -378,6 +378,20 @@ function ModelSection({ slug }: { slug: string }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [providerHealth, setProviderHealth] = useState<Record<string, boolean>>({})
+  const [probeResults, setProbeResults] = useState<Record<string, ProviderProbeResult> | null>(null)
+  const [probing, setProbing] = useState(false)
+
+  async function runProbe() {
+    setProbing(true)
+    try {
+      const { results } = await api.providers.probe()
+      setProbeResults(results)
+    } catch {
+      // Leave existing results; the button can be retried
+    } finally {
+      setProbing(false)
+    }
+  }
   const [usage, setUsage] = useState<import('@/lib/api').UsageStats | null>(null)
   const [budgetInput, setBudgetInput] = useState('')
   const [thresholdInput, setThresholdInput] = useState('80')
@@ -518,17 +532,57 @@ function ModelSection({ slug }: { slug: string }) {
 
       {Object.keys(providerHealth).length > 0 && (
         <div className="mt-4 rounded-md border border-border p-3 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Provider key status</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((p) => (
-              <div key={p} className="flex items-center gap-2 text-sm">
-                <span className={cn('h-2 w-2 rounded-full shrink-0', providerHealth[p] ? 'bg-green-500' : 'bg-muted-foreground/30')} />
-                <span className={providerHealth[p] ? 'text-foreground' : 'text-muted-foreground'}>
-                  {PROVIDER_LABELS[p]}
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Provider status</p>
+            <button
+              type="button"
+              onClick={runProbe}
+              disabled={probing}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {probing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              {probing ? 'Testing…' : probeResults ? 'Test again' : 'Test providers'}
+            </button>
           </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((p) => {
+              const probe = probeResults?.[p]
+              const dotClass = probe
+                ? probe.ok
+                  ? 'bg-green-500'
+                  : probe.configured
+                    ? 'bg-red-500'
+                    : 'bg-muted-foreground/30'
+                : providerHealth[p]
+                  ? 'bg-green-500'
+                  : 'bg-muted-foreground/30'
+              const detail = probe
+                ? probe.ok
+                  ? `${probe.latencyMs}ms`
+                  : probe.configured
+                    ? probe.error
+                    : null
+                : null
+              return (
+                <div key={p} className="flex items-center gap-2 text-sm min-w-0" title={detail ?? undefined}>
+                  <span className={cn('h-2 w-2 rounded-full shrink-0', dotClass)} />
+                  <span className={cn('truncate', providerHealth[p] || probe?.configured ? 'text-foreground' : 'text-muted-foreground')}>
+                    {PROVIDER_LABELS[p]}
+                  </span>
+                  {detail && (
+                    <span className={cn('ml-auto text-[11px] truncate', probe?.ok ? 'text-muted-foreground' : 'text-red-500')}>
+                      {detail}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {probeResults
+              ? 'Green: key works. Red: key set but the provider did not answer. Grey: no key configured.'
+              : 'Dots show which keys are set. Test providers checks each key against the live API.'}
+          </p>
         </div>
       )}
 

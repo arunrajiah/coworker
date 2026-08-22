@@ -305,6 +305,10 @@ export const api = {
   providers: {
     health: () =>
       apiRequest<{ configured: Record<string, boolean> }>('/api/providers/health'),
+    probe: () =>
+      apiRequest<{ results: Record<string, ProviderProbeResult> }>('/api/providers/probe', {
+        method: 'POST',
+      }),
   },
 
   specs: {
@@ -399,6 +403,13 @@ export const api = {
 
 // Shared types
 export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'groq' | 'mistral' | 'ollama' | 'xai' | 'cohere' | 'deepseek' | 'together' | 'openrouter'
+
+export interface ProviderProbeResult {
+  configured: boolean
+  ok: boolean
+  latencyMs?: number
+  error?: string
+}
 
 export interface Workspace {
   id: string

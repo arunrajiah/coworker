@@ -46,7 +46,7 @@ The core product: a self-hostable AI coworker with tasks, chat, memory, and inte
 - ✅ Token usage + exact cost per message, shown under assistant replies
 - ✅ Monthly budget with in-app alerts at a configurable threshold
 - ✅ Shared model catalog + pricing table in `@coworker/core` (one source of truth for web and worker)
-- 📋 Live provider health probe (key status only checks presence, not that the provider answers)
+- ✅ Live provider health probe: Test providers in Settings calls each provider's API to verify the key works, with latency and failure reason
 - 📋 Per-thread model override (today a switch applies workspace-wide)
 
 ### Model benchmarking 💡
