@@ -7,7 +7,6 @@ import { api, type Message } from '@/lib/api'
 import { WorkspaceSocket } from '@/lib/ws'
 import { useAuthStore } from '@/store/auth'
 import { cn, relativeTime } from '@/lib/utils'
-import { nanoid } from 'nanoid'
 
 interface Thread {
   threadId: string
@@ -54,7 +53,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
   }, [workspaceId, token, loadThreads])
 
   function startNewThread() {
-    const id = nanoid()
+    const id = crypto.randomUUID()
     router.push(`/w/${slug}/chat/${id}`)
   }
 

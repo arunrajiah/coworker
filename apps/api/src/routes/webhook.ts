@@ -178,7 +178,7 @@ webhookRoutes.post('/whatsapp/:workspaceId', async (c) => {
   const threadKey = `${WHATSAPP_THREAD_PREFIX}${workspaceId}:${from}`
   let threadId = await redis.get(threadKey)
   if (!threadId) {
-    threadId = nanoid()
+    threadId = crypto.randomUUID()
     await redis.set(threadKey, threadId)
   }
 

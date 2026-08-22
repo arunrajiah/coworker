@@ -16,7 +16,7 @@ async function getOrCreateThreadId(redis: Redis, teamId: string, channelId: stri
   const key = `${THREAD_PREFIX}${teamId}:${channelId}`
   let threadId = await redis.get(key)
   if (!threadId) {
-    threadId = nanoid()
+    threadId = crypto.randomUUID()
     await redis.set(key, threadId)
   }
   return threadId

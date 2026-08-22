@@ -104,7 +104,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
-      router.push(`/w/${slug}/chat/new`)
+      router.push(`/w/${slug}/chat/${crypto.randomUUID()}`)
     } else if (e.key === '?' && !isTyping) {
       setShowShortcuts((s) => !s)
     } else if (e.key === 'Escape') {

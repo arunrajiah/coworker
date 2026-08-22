@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Send, Bot, User, Loader2, Wrench, Moon, Paperclip, FileText, X, Copy, Check, ChevronDown, Cpu, FolderOpen } from 'lucide-react'
 import { api, type Message, type WorkspaceFile, type LLMProvider } from '@/lib/api'
 import { toast } from 'sonner'
@@ -21,6 +21,7 @@ import type { TemplateType } from '@coworker/core'
 
 export default function ThreadPage() {
   const params = useParams()
+  const router = useRouter()
   const slug = params.slug as string
   const threadId = params.threadId as string
 
@@ -265,16 +266,22 @@ export default function ThreadPage() {
     ])
 
     try {
-      // A model picked before the thread exists needs the thread id up front,
-      // so mint it client-side and save the override before the first message.
+      // On a brand-new thread, mint the id client-side so a picked model
+      // override can be saved first and the page can navigate to the thread.
       let sendThreadId = threadId
-      if (threadId === 'new' && pendingOverrideRef.current) {
-        sendThreadId = nanoid()
-        const { provider, model } = pendingOverrideRef.current
-        await api.chat.setThreadSettings(slug, sendThreadId, provider, model)
-        pendingOverrideRef.current = null
+      if (threadId === 'new') {
+        sendThreadId = crypto.randomUUID()
+        if (pendingOverrideRef.current) {
+          const { provider, model } = pendingOverrideRef.current
+          await api.chat.setThreadSettings(slug, sendThreadId, provider, model)
+          pendingOverrideRef.current = null
+        }
       }
       await api.chat.sendMessage(slug, sendThreadId, content, fileIds.length > 0 ? fileIds : undefined)
+      if (threadId === 'new') {
+        // Move to the real thread so the reply streams in over the socket
+        router.replace(`/w/${slug}/chat/${sendThreadId}`)
+      }
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
       setInput(content)
@@ -374,8 +381,20 @@ export default function ThreadPage() {
                         createdAt: new Date().toISOString(),
                       }])
                       try {
-                        await api.chat.sendMessage(slug, threadId, s)
+                        let sendThreadId = threadId
+                        if (threadId === 'new') {
+                          sendThreadId = crypto.randomUUID()
+                          if (pendingOverrideRef.current) {
+                            const { provider, model } = pendingOverrideRef.current
+                            await api.chat.setThreadSettings(slug, sendThreadId, provider, model)
+                            pendingOverrideRef.current = null
+                          }
+                        }
+                        await api.chat.sendMessage(slug, sendThreadId, s)
                         setInput('')
+                        if (threadId === 'new') {
+                          router.replace(`/w/${slug}/chat/${sendThreadId}`)
+                        }
                       } catch {
                         setMessages([])
                         setInput(s)

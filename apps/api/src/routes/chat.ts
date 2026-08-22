@@ -159,7 +159,7 @@ chatRoutes.post(
     const workspaceId = c.get('workspaceId')
     const user = c.get('user')
     const { content, fileIds } = c.req.valid('json')
-    const threadId = c.req.param('threadId') === 'new' ? nanoid() : c.req.param('threadId')
+    const threadId = c.req.param('threadId') === 'new' ? crypto.randomUUID() : c.req.param('threadId')
     const { db } = getContainer()
 
     // Save user message

@@ -18,7 +18,7 @@ async function getOrCreateThreadId(redis: Redis, chatId: number): Promise<string
   const key = `${THREAD_PREFIX}${chatId}`
   let threadId = await redis.get(key)
   if (!threadId) {
-    threadId = nanoid()
+    threadId = crypto.randomUUID()
     await redis.set(key, threadId) // no expiry — thread persists
   }
   return threadId
