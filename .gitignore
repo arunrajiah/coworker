@@ -12,3 +12,8 @@ uploads/
 # Claude Code local files (never commit)
 CLAUDE.md
 .claude/
+
+# Local AI assistant / OS / env files
+CLAUDE.local.md
+.mcp.json
+*.tsbuildinfo
