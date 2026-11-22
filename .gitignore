@@ -9,11 +9,6 @@ uploads/
 *.log
 .DS_Store
 
-# Claude Code local files (never commit)
-CLAUDE.md
-.claude/
-
-# Local AI assistant / OS / env files
-CLAUDE.local.md
+# Local OS / env files
 .mcp.json
 *.tsbuildinfo
